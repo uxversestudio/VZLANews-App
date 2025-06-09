@@ -36,7 +36,7 @@ const SearchResultItem = ({ item, onPress }) => {
       activeOpacity={0.7}
     >
       <Image
-        source={require("../assets/images/logo.jpeg")}
+        source={{ uri: item.img }}
         style={styles.image}
         resizeMode='cover'
       />

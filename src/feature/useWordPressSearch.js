@@ -36,7 +36,8 @@ const useWordPressSearch = () => {
 
   // Constantes
   const API_BASE_URL = "https://venezuela-news.com/wp-json/wp/v2";
-  const DEFAULT_IMAGE = require("../assets/images/logo.jpeg");
+  const DEFAULT_IMAGE =
+    "https://venezuela-news.com/wp-content/uploads/2025/01/logo-VN-azul-2025.png";
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
   const SEARCH_DEBOUNCE_DELAY = 300; // 300ms
 
@@ -191,7 +192,7 @@ const useWordPressSearch = () => {
       const searchResponse = await fetch(
         `${API_BASE_URL}/posts?search=${encodeURIComponent(
           query
-        )}&per_page=20&_embed=wp:featuredmedia,wp:term&_fields=id,title,excerpt,content,slug,date,link,_embedded`,
+        )}&per_page=20&_embed=1&_fields=id,title,excerpt,content,slug,date,link,_links,_embedded`,
         {
           signal: abortControllerRef.current.signal,
         }
@@ -211,11 +212,13 @@ const useWordPressSearch = () => {
         content: post.content?.rendered || "",
         slug: post.slug,
         time: post.date,
-        img: getPostFeaturedImageOptimized(post),
+        img: getPostFeaturedImageOptimized(post) || "",
         category: getCategoryNameFromPostOptimized(post),
         read_time: calculateReadTimeOptimized(post.content?.rendered || ""),
         link: post.link,
       }));
+      const imx = searchData.map((post) => console.log(post));
+      console.log(imx, "=============");
 
       // Guardar en cache (limitar cache a 50 búsquedas)
       if (cacheRef.current.searches.size >= 50) {
@@ -281,19 +284,44 @@ const useWordPressSearch = () => {
 
   /**
    * Función optimizada para obtener imagen destacada
-   */
-  const getPostFeaturedImageOptimized = useCallback((post) => {
-    try {
-      const featuredMedia = post._embedded?.["wp:featuredmedia"]?.[0];
-      if (featuredMedia?.source_url) {
-        return featuredMedia.source_url;
-      }
-    } catch (error) {
-      console.warn("Error getting featured image:", error);
-    }
-    return DEFAULT_IMAGE;
-  }, []);
+   */ const getPostFeaturedImageOptimized = useCallback(
+    (post) => {
+      try {
+        // Verificar si hay medios incrustados
+        if (!post._embedded || !post._embedded["wp:featuredmedia"]) {
+          return DEFAULT_IMAGE;
+        }
 
+        // Obtener el primer elemento de medios destacados
+        const featuredMedia = post._embedded["wp:featuredmedia"][0];
+
+        // Intentar obtener la imagen en diferentes tamaños (orden de prioridad)
+        const imageSource =
+          featuredMedia?.media_details?.sizes?.full?.source_url || // Tamaño completo
+          featuredMedia?.media_details?.sizes?.large?.source_url || // Grande
+          featuredMedia?.media_details?.sizes?.medium_large?.source_url || // Mediano grande
+          featuredMedia?.media_details?.sizes?.medium?.source_url || // Mediano
+          featuredMedia?.source_url || // URL original
+          featuredMedia?.media_details?.sizes?.thumbnail?.source_url; // Miniatura
+
+        // Si encontramos una imagen válida
+        if (imageSource && typeof imageSource === "string") {
+          // Asegurar HTTPS y limpiar la URL
+          let imageUrl = imageSource.trim();
+          if (imageUrl.startsWith("http://")) {
+            imageUrl = imageUrl.replace("http://", "https://");
+          }
+          return imageUrl;
+        }
+      } catch (error) {
+        console.warn("Error getting featured image:", error);
+      }
+
+      // Si todo falla, devolver la imagen por defecto
+      return DEFAULT_IMAGE;
+    },
+    [DEFAULT_IMAGE]
+  );
   /**
    * Función optimizada para obtener nombre de categoría
    */
