@@ -111,7 +111,7 @@ android {
 
     namespace 'com.geekspark.gsnews'
     defaultConfig {
-        applicationId 'com.geekspark.gsnews'
+        applicationId 'com.uxverse.vzlanews'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
