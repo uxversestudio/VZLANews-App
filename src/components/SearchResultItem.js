@@ -29,6 +29,8 @@ const SearchResultItem = ({ item, onPress }) => {
     }
   };
 
+  console.log(item.img);
+
   return (
     <TouchableOpacity
       onPress={handlePress}

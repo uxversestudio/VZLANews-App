@@ -13,7 +13,14 @@
         "buildType": "app-bundle"
       }
     },
-    "production": {}
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "ios": {
+        "simulator": false
+      }
+    }
   },
   "submit": {
     "production": {}

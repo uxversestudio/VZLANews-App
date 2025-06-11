@@ -6,7 +6,7 @@ const Logo = () => {
   return (
     <Image
       source={require("../assets/images/logoCompleto.png")}
-      style={{ width: 95, height: 25 }}
+      style={{ width: "40%", height: 35, marginBottom: -20 }}
       resizeMode='contain'
     />
   );

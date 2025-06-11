@@ -44,7 +44,7 @@ const BottomTabNavigator = () => {
           ),
         }}
       />
-      <Tab.Screen
+      {/*<Tab.Screen
         name='Bookmarks'
         component={Screens.Bookmarks}
         options={{
@@ -59,7 +59,7 @@ const BottomTabNavigator = () => {
         }}
       />
 
-      {/*<Tab.Screen 
+      <Tab.Screen 
               name="Profile" 
               component={Screens.UserProfile} 
               options={{ 

@@ -25,13 +25,13 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { getStyles } from "../styles/newsdetails";
-import { AntDesign } from "@expo/vector-icons";
 import { colors, fonts, tStyles } from "../common/theme";
 import ShareBackHeader from "../components/ShareBackHeader";
 import Hr from "../components/Hr";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import Pill from "../components/Pill";
 import usePostDetails from "../feature/wordpress-api-details";
+import { shareContent } from "../common/shareUtils"; // Import the share utility
 
 const NewsDetails = ({ navigation }) => {
   const mode = useColorScheme();
@@ -194,6 +194,24 @@ const NewsDetails = ({ navigation }) => {
     }
   };
 
+  const handleShareArticle = async () => {
+    if (!newsData) return;
+
+    try {
+      const articleUrl =
+        newsData.link ||
+        `https://venezuela-news.com/article/${newsData.id || "unknown"}`;
+
+      await shareContent({
+        title: "Compartir noticia",
+        message: newsData.headline || "Mira esta noticia interesante",
+        url: articleUrl,
+      });
+    } catch (error) {
+      console.error("Error sharing article:", error);
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -251,7 +269,11 @@ const NewsDetails = ({ navigation }) => {
     <SafeAreaView edges={["right", "left"]} style={getStyles(mode).container}>
       <KeyboardAvoidingView behavior='height' style={getStyles(mode).container}>
         {/* Top Bar */}
-        <TopBar scroll={scroll} headline={newsData.headline} />
+        <TopBar
+          scroll={scroll}
+          headline={newsData.headline}
+          shareArticle={handleShareArticle}
+        />
 
         <Animated.ScrollView
           bounces={false}
@@ -389,7 +411,7 @@ const NewsDetails = ({ navigation }) => {
   );
 };
 
-const TopBar = ({ scroll, addBookmark, headline }) => {
+const TopBar = ({ scroll, shareArticle, headline }) => {
   const mode = useColorScheme();
   const pTop = Platform.OS === "ios" ? 37 : 37;
 
@@ -453,10 +475,7 @@ const TopBar = ({ scroll, addBookmark, headline }) => {
           { paddingTop: pTop, paddingBottom: 10 },
         ]}
       >
-        <ShareBackHeader
-          color={colors.gray10}
-          share={() => alert("Función de backend")}
-        />
+        <ShareBackHeader color={colors.gray10} share={shareArticle} />
 
         <Animated.Text
           style={[
@@ -551,13 +570,9 @@ const ImageHeader = ({ scroll, newsData }) => {
           </Text>
 
           <View style={[tStyles.row, { marginTop: 10 }]}>
-            <View style={tStyles.row}>
-              <AntDesign name='eyeo' size={12} color={colors.gray10} />
-            </View>
+            <View style={tStyles.row}></View>
 
-            <View style={[tStyles.row, { marginLeft: 20 }]}>
-              <AntDesign name='like2' size={12} color={colors.gray10} />
-            </View>
+            <View style={[tStyles.row, { marginLeft: 20 }]}></View>
           </View>
         </LinearGradient>
       </Animated.View>

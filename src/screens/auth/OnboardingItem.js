@@ -12,10 +12,16 @@ import { getStyles } from "../../styles/auth";
 import MainBtn from "../../components/MainBtn";
 import { useNavigation } from "@react-navigation/native";
 
-const OnboardingItem = ({ item, index, next, slides }) => {
+const OnboardingItem = ({ item, index, next, slides, onComplete }) => {
   const mode = useColorScheme();
   const { height, width } = useWindowDimensions();
-  const ht = Platform.OS === "ios" ? height - 120 : height - 50;
+  const ht = Platform.OS === "ios" ? height - 120 : height - 60;
+  const handleFinalButton = async () => {
+    console.log("🎉 Usuario completó el onboarding");
+    if (onComplete) {
+      await onComplete();
+    }
+  };
 
   const navigation = useNavigation();
 
@@ -29,7 +35,7 @@ const OnboardingItem = ({ item, index, next, slides }) => {
     >
       <ImageBackground
         source={item.img}
-        style={[{ width: "100%", height: ht }]}
+        style={[{ width: "100%", height: ht, marginTop: 5 }]}
         imageStyle={{ borderRadius: 30 }}
         resizeMode='cover'
       >
@@ -51,10 +57,7 @@ const OnboardingItem = ({ item, index, next, slides }) => {
 
           <View style={[tStyles.selfcenter, { width: 180, marginTop: 40 }]}>
             {index == slides - 1 ? (
-              <MainBtn
-                onPress={() => navigation.navigate("BottomTabNavigator")}
-                title='Ingresar'
-              />
+              <MainBtn onPress={handleFinalButton} title='Ingresar' />
             ) : (
               <MainBtn onPress={next} title='Siguiente' />
             )}

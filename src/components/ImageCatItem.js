@@ -31,14 +31,13 @@ const ImageCatItem = ({ item, selected, setSelected, wide }) => {
       setSelected(sel);
     }
   }
-  console.log(item.image);
   return (
     <Pressable
       onPress={() => toggleSelected(item.id)}
       style={[{ width: (_width - 45) * 0.5, height: _width * 0.61 }]}
     >
       <ImageBackground
-        source={require("../assets/images/logo.jpeg")}
+        source={{ uri: item.image }}
         style={[
           isSelected()
             ? getStyles(mode).topicItemSelected

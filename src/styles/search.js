@@ -41,7 +41,7 @@ const darkStyles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: "#fff",
+    color: "#000",
     padding: 0,
   },
   categoriesTitle: {
@@ -53,7 +53,7 @@ const darkStyles = StyleSheet.create({
   resultsTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#fff",
+    color: "#000",
     marginTop: 10,
   },
   loadingContainer: {

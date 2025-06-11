@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "VenezuelaNews",
-    "slug": "noticias",
+    "slug": "venezuelanews",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -25,10 +25,12 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-font"],
+    "plugins": [
+      "expo-font"
+    ],
     "extra": {
       "eas": {
-        "projectId": "c8f8a8f2-1cd0-45e9-8d05-9f3401157b02"
+        "projectId": "5e3f59dd-d4e2-428e-ac1d-74d9f85a6b95"
       }
     },
     "owner": "angelhtc"
