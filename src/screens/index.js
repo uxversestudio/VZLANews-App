@@ -26,11 +26,32 @@ import Bookmarks from "./Bookmarks";
 import Notifications from "./Notifications";
 import TopicNews from "./TopicNews";
 
-
-
 export {
-    Onboarding, SignInOptions, SignUp, SignIn, OauthSuccess, ForgotPassword, EnterOTP, SetPassword,
-    Terms, SelectCountry, SelectTopics, SelectSources, FillInformation, AccountReady,
-    Home, NewsDetails, UserProfile, SourceProfile, Followers, Following, Comments,
-    HashDetails, Search, SearchResults, Bookmarks, Notifications, TopicNews
-}
+  Onboarding,
+  SignInOptions,
+  SignUp,
+  SignIn,
+  OauthSuccess,
+  ForgotPassword,
+  EnterOTP,
+  SetPassword,
+  Terms,
+  SelectCountry,
+  SelectTopics,
+  SelectSources,
+  FillInformation,
+  AccountReady,
+  Home,
+  NewsDetails,
+  UserProfile,
+  SourceProfile,
+  Followers,
+  Following,
+  Comments,
+  HashDetails,
+  Search,
+  SearchResults,
+  Bookmarks,
+  Notifications,
+  TopicNews,
+};

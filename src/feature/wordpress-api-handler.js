@@ -2,25 +2,65 @@
 class WordPressAPIHandler {
   constructor(baseUrl = "https://venezuela-news.com/wp-json/wp/v2") {
     this.baseUrl = baseUrl;
+    this.cache = {
+      categories: {},
+      posts: {},
+      search: {},
+    };
+    this.pageCache = {};
   }
 
-  // Fetch posts from WordPress API
-  async fetchPosts(params = {}) {
+  // Fetch posts from WordPress API with pagination support
+  async fetchPosts(params = {}, page = 1) {
     try {
       const queryParams = new URLSearchParams({
-        per_page: 10,
+        per_page: 6, // Cargar 6 artículos por página
         _embed: true, // Include featured media and author info
+        page: page,
         ...params,
       });
 
+      // Crear una clave de caché única basada en los parámetros
+      const cacheKey = `${JSON.stringify(params)}_page_${page}`;
+
+      // Verificar si tenemos resultados en caché
+      if (this.cache.posts[cacheKey]) {
+        console.log(`🔄 Usando caché para: ${cacheKey}`);
+        return {
+          posts: this.cache.posts[cacheKey].posts,
+          totalPages: this.cache.posts[cacheKey].totalPages,
+          hasMore: this.cache.posts[cacheKey].hasMore,
+        };
+      }
+
+      console.log(`🌐 Fetching: ${this.baseUrl}/posts?${queryParams}`);
       const response = await fetch(`${this.baseUrl}/posts?${queryParams}`);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
+      // Obtener el total de páginas del header
+      const totalPages = parseInt(
+        response.headers.get("X-WP-TotalPages") || "1",
+        10
+      );
       const posts = await response.json();
-      return this.processPosts(posts);
+      const processedPosts = this.processPosts(posts);
+
+      // Guardar en caché
+      this.cache.posts[cacheKey] = {
+        posts: processedPosts,
+        totalPages: totalPages,
+        hasMore: page < totalPages,
+        timestamp: Date.now(),
+      };
+
+      return {
+        posts: processedPosts,
+        totalPages: totalPages,
+        hasMore: page < totalPages,
+      };
     } catch (error) {
       console.error("Error fetching WordPress posts:", error);
       throw error;
@@ -75,18 +115,6 @@ class WordPressAPIHandler {
       "&rdquo;": '"',
       "&bull;": "•",
       "&middot;": "·",
-      "&sect;": "§",
-      "&para;": "¶",
-      "&dagger;": "†",
-      "&Dagger;": "‡",
-      "&permil;": "‰",
-      "&lsaquo;": "‹",
-      "&rsaquo;": "›",
-      "&euro;": "€",
-      "&pound;": "£",
-      "&yen;": "¥",
-      "&cent;": "¢",
-      "&curren;": "¤",
     };
 
     let decodedText = text;
@@ -100,11 +128,6 @@ class WordPressAPIHandler {
     // Handle numeric entities (&#123; format)
     decodedText = decodedText.replace(/&#(\d+);/g, (match, dec) => {
       return String.fromCharCode(dec);
-    });
-
-    // Handle hex entities (&#x1F; format)
-    decodedText = decodedText.replace(/&#x([0-9A-Fa-f]+);/g, (match, hex) => {
-      return String.fromCharCode(Number.parseInt(hex, 16));
     });
 
     // Remove HTML tags
@@ -131,7 +154,18 @@ class WordPressAPIHandler {
   getPostImage(post) {
     if (post._embedded && post._embedded["wp:featuredmedia"]) {
       const media = post._embedded["wp:featuredmedia"][0];
-      if (media && media.source_url) {
+      if (media) {
+        // Intentar obtener la imagen en diferentes tamaños
+        if (media.media_details && media.media_details.sizes) {
+          const sizes = media.media_details.sizes;
+          // Priorizar tamaños medianos para mejor rendimiento
+          return (
+            sizes.medium_large?.source_url ||
+            sizes.medium?.source_url ||
+            sizes.large?.source_url ||
+            media.source_url
+          );
+        }
         return media.source_url;
       }
     }
@@ -176,66 +210,171 @@ class WordPressAPIHandler {
     return Math.max(1, readTime); // Minimum 1 minute
   }
 
-  // Get posts by category
-  async getPostsByCategory(categorySlug, limit = 10) {
+  // Get posts by category with pagination
+  async getPostsByCategory(categoryId, page = 1) {
     try {
-      // First get the category ID
-      const categoriesResponse = await fetch(
-        `${this.baseUrl}/categories?slug=${categorySlug}`
-      );
-      const categories = await categoriesResponse.json();
+      const category = categoryMapping[categoryId];
 
-      if (categories.length === 0) {
-        console.warn(
-          `Category '${categorySlug}' not found, returning latest posts`
+      if (categoryId === 1 || !category) {
+        // "Lo último" - get latest posts with pagination
+        const result = await this.fetchPosts({ per_page: 6 }, page);
+        console.log(
+          `📰 Posts for category ${categoryId} (latest) - Page ${page}:`,
+          result.posts.length,
+          `posts (Total pages: ${result.totalPages})`
         );
-        return await this.fetchPosts({ per_page: limit });
+        return result;
+      } else {
+        // First get the category ID if we don't have it cached
+        let wpCategoryId;
+
+        const categoryCacheKey = `cat_${category.slug}`;
+        if (this.cache.categories[categoryCacheKey]) {
+          wpCategoryId = this.cache.categories[categoryCacheKey];
+        } else {
+          const categoriesResponse = await fetch(
+            `${this.baseUrl}/categories?slug=${category.slug}`
+          );
+          const categoriesData = await categoriesResponse.json();
+
+          if (categoriesData.length === 0) {
+            console.warn(
+              `⚠️ Category '${category.slug}' not found, returning latest posts`
+            );
+            return await this.fetchPosts({ per_page: 6 }, page);
+          }
+
+          wpCategoryId = categoriesData[0].id;
+          this.cache.categories[categoryCacheKey] = wpCategoryId;
+        }
+
+        // Then get posts for that category with pagination
+        const result = await this.fetchPosts(
+          {
+            categories: wpCategoryId,
+            per_page: 6,
+          },
+          page
+        );
+
+        console.log(
+          `📰 Posts for category ${categoryId} (${category.slug}) - Page ${page}:`,
+          result.posts.length,
+          `posts (Total pages: ${result.totalPages})`
+        );
+
+        return result;
       }
-
-      const categoryId = categories[0].id;
-
-      // Then get posts for that category
-      return await this.fetchPosts({
-        categories: categoryId,
-        per_page: limit,
-      });
     } catch (error) {
-      console.error("Error fetching posts by category:", error);
-      // Fallback to latest posts
-      return await this.fetchPosts({ per_page: limit });
+      console.error(
+        `❌ Failed to fetch posts for category ${categoryId}:`,
+        error
+      );
+      return { posts: [], totalPages: 1, hasMore: false };
     }
   }
 
   // Get featured posts (you can customize this logic)
   async getFeaturedPosts(limit = 3) {
-    return await this.fetchPosts({
+    const cacheKey = `featured_${limit}`;
+
+    if (
+      this.cache.posts[cacheKey] &&
+      Date.now() - this.cache.posts[cacheKey].timestamp < 5 * 60 * 1000
+    ) {
+      // 5 minutos
+      return this.cache.posts[cacheKey].posts;
+    }
+
+    const result = await this.fetchPosts({
       per_page: limit,
       orderby: "date",
       order: "desc",
     });
+
+    return result.posts;
   }
 
-  // Search posts
-  async searchPosts(query, limit = 10) {
-    return await this.fetchPosts({
-      search: query,
-      per_page: limit,
-    });
+  // Search posts with pagination
+  async searchPosts(query, page = 1) {
+    if (!query || query.length < 3) {
+      return { posts: [], totalPages: 0, hasMore: false };
+    }
+
+    const cacheKey = `search_${query.toLowerCase().trim()}_page_${page}`;
+
+    if (
+      this.cache.search[cacheKey] &&
+      Date.now() - this.cache.search[cacheKey].timestamp < 5 * 60 * 1000
+    ) {
+      return {
+        posts: this.cache.search[cacheKey].posts,
+        totalPages: this.cache.search[cacheKey].totalPages,
+        hasMore: this.cache.search[cacheKey].hasMore,
+      };
+    }
+
+    try {
+      const result = await this.fetchPosts(
+        {
+          search: query,
+          per_page: 6,
+        },
+        page
+      );
+
+      this.cache.search[cacheKey] = {
+        posts: result.posts,
+        totalPages: result.totalPages,
+        hasMore: result.hasMore,
+        timestamp: Date.now(),
+      };
+
+      return result;
+    } catch (error) {
+      console.error(`❌ Search error for "${query}":`, error);
+      return { posts: [], totalPages: 0, hasMore: false };
+    }
+  }
+
+  // Limpiar caché
+  clearCache() {
+    this.cache = {
+      categories: {},
+      posts: {},
+      search: {},
+    };
+    console.log("🧹 Cache cleared");
   }
 }
 
 // Create instance
 const wordpressAPI = new WordPressAPIHandler();
 
-// Example: Fetch latest posts
-async function getLatestNews() {
+// Category mapping for your app
+const categoryMapping = {
+  1: { slug: "latest", title: "Lo último" },
+  2: { slug: "nacionales", title: "Nacionales" },
+  3: { slug: "internacionales", title: "Internacionales" },
+  4: { slug: "opinion", title: "Opinion" },
+  5: { slug: "politica", title: "Política" },
+  6: { slug: "economia", title: "Economía" },
+  7: { slug: "deportes", title: "Deportes" },
+};
+
+// Example: Fetch latest posts with pagination
+async function getLatestNews(page = 1) {
   try {
-    const posts = await wordpressAPI.fetchPosts({ per_page: 5 });
-    console.log("Latest news fetched:", posts.length, "posts");
-    return posts;
+    const result = await wordpressAPI.fetchPosts({ per_page: 6 }, page);
+    console.log(
+      `📰 Latest news fetched - Page ${page}:`,
+      result.posts.length,
+      "posts"
+    );
+    return result;
   } catch (error) {
-    console.error("Failed to fetch latest news:", error);
-    return [];
+    console.error("❌ Failed to fetch latest news:", error);
+    return { posts: [], totalPages: 0, hasMore: false };
   }
 }
 
@@ -250,60 +389,40 @@ async function getFeaturedNews() {
       img: post.img,
       headline: post.headline,
       category: post.category,
+      content: post.content,
       source: {
         logo: "https://venezuela-news.com/wp-content/uploads/2023/01/logo.png", // Your site logo
         name: "Venezuela News",
       },
       time: post.time,
+      slug: post.slug,
+      link: post.link,
     }));
 
-    console.log("Featured news fetched:", sliderData.length, "posts");
+    console.log("🎯 Featured news fetched:", sliderData.length, "posts");
     return sliderData;
   } catch (error) {
-    console.error("Failed to fetch featured news:", error);
+    console.error("❌ Failed to fetch featured news:", error);
     return [];
   }
 }
 
-// Category mapping for your app
-const categoryMapping = {
-  1: { slug: "latest", title: "Lo último" },
-  2: { slug: "nacionales", title: "Nacionales" },
-  3: { slug: "internacionales", title: "internacionales" },
-  4: { slug: "opinion", title: "Opinion" },
-  5: { slug: "politica", title: "Política" },
-  6: { slug: "economia", title: "Economía" },
-  7: { slug: "deportes", title: "Deportes" },
-};
-
-// Function to get posts by category ID (for your existing category system)
-async function getPostsByCategory(categoryId) {
+// Function to get posts by category ID with pagination
+async function getPostsByCategory(categoryId, page = 1) {
   try {
-    const category = categoryMapping[categoryId];
-
-    if (categoryId === 1 || !category) {
-      // "Lo último" - get latest posts
-      const posts = await wordpressAPI.fetchPosts({ per_page: 10 });
-      console.log(
-        `Posts for category ${categoryId} (latest):`,
-        posts.length,
-        "posts"
-      );
-      return posts;
-    } else {
-      // Get posts by specific category
-      const posts = await wordpressAPI.getPostsByCategory(category.slug, 10);
-      console.log(
-        `Posts for category ${categoryId} (${category.slug}):`,
-        posts.length,
-        "posts"
-      );
-      return posts;
-    }
+    return await wordpressAPI.getPostsByCategory(categoryId, page);
   } catch (error) {
-    console.error(`Failed to fetch posts for category ${categoryId}:`, error);
-    return [];
+    console.error(
+      `❌ Failed to fetch posts for category ${categoryId}:`,
+      error
+    );
+    return { posts: [], totalPages: 0, hasMore: false };
   }
+}
+
+// Search posts with pagination
+async function searchPosts(query, page = 1) {
+  return await wordpressAPI.searchPosts(query, page);
 }
 
 // Export for use in React Native
@@ -313,5 +432,6 @@ export {
   getLatestNews,
   getFeaturedNews,
   getPostsByCategory,
+  searchPosts,
   categoryMapping,
 };

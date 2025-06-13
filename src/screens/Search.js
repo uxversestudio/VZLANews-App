@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -23,10 +23,13 @@ import useWordPressSearch from "../feature/useWordPressSearch";
 const Search = ({ navigation }) => {
   const mode = useColorScheme();
   const [selected, setSelected] = useState([]);
+  const hasInitializedSelectedRef = useRef(false);
+  const flatListRef = useRef(null);
 
-  // Usar nuestro hook personalizado
+  // Usar nuestro hook personalizado SIN LÍMITE DE TIEMPO
   const {
     categories,
+    allCategories,
     searchResults,
     searchQuery,
     showCategories,
@@ -35,22 +38,27 @@ const Search = ({ navigation }) => {
     searchLoading,
     searchError,
     isSearching,
+    hasMoreCategories,
+    loadingMoreCategories,
+    hasMoreSearchResults,
+    loadingMoreSearchResults,
+    searchPage,
     handleSearchInputChange,
     clearSearch,
     refreshCategories,
+    loadMoreCategories,
+    loadMoreSearchResults,
   } = useWordPressSearch();
 
-  // Seleccionar categorías populares por defecto
-  useEffect(() => {
-    if (categories.length > 0 && selected.length === 0) {
-      // Seleccionar las 3 categorías con más artículos
-      const topCategoryIds = categories.slice(0, 3).map((cat) => cat.id);
+  // INICIALIZACIÓN ÚNICA DE CATEGORÍAS SELECCIONADAS
+  if (categories.length > 0 && !hasInitializedSelectedRef.current) {
+    const topCategoryIds = categories.slice(0, 3).map((cat) => cat.id);
+    setSelected(topCategoryIds);
+    hasInitializedSelectedRef.current = true;
+    console.log("🎯 Categorías seleccionadas por defecto:", topCategoryIds);
+  }
 
-      setSelected(topCategoryIds);
-    }
-  }, [categories, selected]);
-
-  // Manejar la navegación a los resultados de búsqueda
+  // Funciones de navegación - ESTABLES
   const handleSearchSubmit = () => {
     if (searchQuery.length >= 3) {
       navigation.navigate("SearchResults", {
@@ -60,14 +68,100 @@ const Search = ({ navigation }) => {
     }
   };
 
-  // Manejar la navegación a los detalles de la noticia
   const handleNewsPress = (newsItem) => {
     navigation.navigate("NewsDetail", { post: newsItem });
   };
 
-  // Manejar la navegación a la categoría
   const handleCategoryPress = (category) => {
     navigation.navigate("TopicNews", { category });
+  };
+
+  // Función de debug para scroll
+  const debugScrollInfo = () => {
+    console.log(`🔍 Estado actual de búsqueda:`);
+    console.log(`   - Query: "${searchQuery}"`);
+    console.log(`   - Resultados: ${searchResults.length}`);
+    console.log(`   - Página actual: ${searchPage}`);
+    console.log(`   - Hay más: ${hasMoreSearchResults}`);
+    console.log(`   - Cargando más: ${loadingMoreSearchResults}`);
+  };
+
+  // Renderizar item de categoría
+  const renderCategoryItem = ({ item }) => (
+    <ImageCatItem
+      item={item}
+      selected={selected}
+      setSelected={setSelected}
+      onPress={() => handleCategoryPress(item)}
+    />
+  );
+
+  // Renderizar item de resultado de búsqueda
+  const renderSearchResultItem = ({ item }) => (
+    <SearchResultItem item={item} onPress={handleNewsPress} />
+  );
+
+  // Renderizar footer para categorías
+  const renderCategoriesFooter = () => {
+    if (loadingMoreCategories) {
+      return (
+        <View style={getStyles(mode).loadingFooter}>
+          <ActivityIndicator size='small' color='#1e3a8a' />
+          <Text style={getStyles(mode).loadingText}>
+            Cargando 3 categorías más...
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <TouchableOpacity
+        style={getStyles(mode).loadMoreButton}
+        onPress={loadMoreCategories}
+      >
+        <Text style={getStyles(mode).loadMoreText}>
+          Cargar 3 categorías más
+        </Text>
+        <MaterialCommunityIcons name='chevron-down' size={20} color='#1e3a8a' />
+      </TouchableOpacity>
+    );
+  };
+
+  // Renderizar footer para resultados de búsqueda
+  const renderSearchFooter = () => {
+    if (!hasMoreSearchResults) {
+      return (
+        <View style={getStyles(mode).footerContainer}>
+          <Text style={getStyles(mode).footerText}>
+            ✅ Todos los resultados mostrados ({searchResults.length} total)
+          </Text>
+        </View>
+      );
+    }
+
+    if (loadingMoreSearchResults) {
+      return (
+        <View style={getStyles(mode).loadingFooter}>
+          <ActivityIndicator size='small' color='#1e3a8a' />
+          <Text style={getStyles(mode).loadingText}>
+            Cargando 3 resultados más...
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <TouchableOpacity
+        style={getStyles(mode).loadMoreButton}
+        onPress={() => {
+          console.log("🔄 Botón de cargar más presionado manualmente");
+          loadMoreSearchResults();
+        }}
+      >
+        <Text style={getStyles(mode).loadMoreText}>Ver 3 resultados más</Text>
+        <MaterialCommunityIcons name='chevron-down' size={20} color='#1e3a8a' />
+      </TouchableOpacity>
+    );
   };
 
   return (
@@ -85,7 +179,7 @@ const Search = ({ navigation }) => {
         <SmallHeading heading='Buscar' />
       </View>
 
-      {/* Search Bar */}
+      {/* Search Bar Optimizado */}
       <View style={{ paddingHorizontal: 15, marginTop: 20, marginBottom: 10 }}>
         <View style={getStyles(mode).searchContainer}>
           <MaterialCommunityIcons
@@ -96,12 +190,14 @@ const Search = ({ navigation }) => {
           />
           <TextInput
             style={getStyles(mode).searchInput}
-            placeholder='Buscar noticias...'
+            placeholder='Buscar noticias'
             placeholderTextColor='#999'
             value={searchQuery}
             onChangeText={handleSearchInputChange}
             onSubmitEditing={handleSearchSubmit}
             returnKeyType='search'
+            autoCorrect={false}
+            autoCapitalize='none'
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={clearSearch}>
@@ -110,6 +206,10 @@ const Search = ({ navigation }) => {
           )}
         </View>
       </View>
+
+      {/* Stats Bar Optimizada */}
+
+      {/* Stats Bar para Búsqueda */}
 
       {/* Error Messages */}
       {categoriesError && (
@@ -144,69 +244,88 @@ const Search = ({ navigation }) => {
         </View>
       )}
 
-      {/* Search Results */}
+      {/* Search Results - CON SCROLL INFINITO SIN LÍMITE */}
       {isSearching && (
         <>
           <View style={{ paddingHorizontal: 15, marginBottom: 10 }}>
             <Text style={getStyles(mode).resultsTitle}>
-              Resultados para "{searchQuery}"
+              Resultados para "{searchQuery}"{" "}
+              {searchResults.length > 0 && `(${searchResults.length})`}
             </Text>
           </View>
 
           {searchLoading ? (
             <View style={getStyles(mode).loadingContainer}>
               <ActivityIndicator size='small' color='#1e3a8a' />
-              <Text style={getStyles(mode).loadingText}>Buscando...</Text>
+              <Text style={getStyles(mode).loadingText}>
+                Buscando resultados...
+              </Text>
             </View>
           ) : (
             <FlatList
+              ref={flatListRef}
               data={searchResults}
               keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item }) => (
-                <SearchResultItem item={item} onPress={handleNewsPress} />
-              )}
+              renderItem={renderSearchResultItem}
               ListEmptyComponent={
                 <View style={getStyles(mode).emptyContainer}>
                   <Text style={getStyles(mode).emptyText}>
                     No se encontraron resultados para "{searchQuery}"
                   </Text>
+                  <Text style={getStyles(mode).emptySubText}>
+                    Intenta con términos más específicos
+                  </Text>
                 </View>
               }
+              ListFooterComponent={renderSearchFooter}
               contentContainerStyle={{
                 paddingHorizontal: 15,
                 paddingBottom: 20,
               }}
+              showsVerticalScrollIndicator={false}
+              onEndReached={() => {
+                console.log(
+                  `📱 onEndReached triggered - hasMore: ${hasMoreSearchResults}, loading: ${loadingMoreSearchResults}`
+                );
+                debugScrollInfo();
+
+                if (hasMoreSearchResults && !loadingMoreSearchResults) {
+                  console.log(`🚀 Iniciando carga de más resultados...`);
+                  loadMoreSearchResults();
+                } else {
+                  console.log(
+                    `🛑 No se cargan más resultados - hasMore: ${hasMoreSearchResults}, loading: ${loadingMoreSearchResults}`
+                  );
+                }
+              }}
+              onEndReachedThreshold={0.3}
             />
           )}
         </>
       )}
 
-      {/* Category Listing */}
+      {/* Category Listing with Pagination - 3 CATEGORÍAS POR VEZ */}
       {showCategories && !categoriesLoading && (
-        <>
-          <View style={{ paddingHorizontal: 15, marginBottom: 10 }}></View>
-
-          <FlatList
-            showsVerticalScrollIndicator={false}
-            data={categories}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => (
-              <ImageCatItem
-                item={item}
-                selected={selected}
-                setSelected={setSelected}
-                onPress={() => handleCategoryPress(item)}
-              />
-            )}
-            style={tStyles.flex1}
-            contentContainerStyle={[
-              { paddingHorizontal: 15, paddingTop: 10, paddingBottom: 90 },
-            ]}
-            numColumns={2}
-            columnWrapperStyle={tStyles.spacedRow}
-            ItemSeparatorComponent={<View style={{ height: 15 }} />}
-          />
-        </>
+        <FlatList
+          showsVerticalScrollIndicator={false}
+          data={categories}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderCategoryItem}
+          style={tStyles.flex1}
+          contentContainerStyle={[
+            { paddingHorizontal: 15, paddingTop: 10, paddingBottom: 90 },
+          ]}
+          numColumns={2}
+          columnWrapperStyle={tStyles.spacedRow}
+          ItemSeparatorComponent={<View style={{ height: 15 }} />}
+          ListFooterComponent={renderCategoriesFooter}
+          onEndReached={() => {
+            if (hasMoreCategories && !loadingMoreCategories) {
+              loadMoreCategories();
+            }
+          }}
+          onEndReachedThreshold={0.3}
+        />
       )}
     </SafeAreaView>
   );

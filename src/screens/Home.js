@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useColorScheme } from "react-native";
 import {
   View,
   Text,
-  useColorScheme,
   TouchableOpacity,
   FlatList,
-  ScrollView,
   ActivityIndicator,
+  ScrollView,
   RefreshControl,
   Alert,
 } from "react-native";
@@ -27,14 +27,24 @@ import {
 } from "../feature/wordpress-api-handler";
 
 const Home = ({ navigation }) => {
-  const mode = useColorScheme();
+  const mode = useColorScheme?.() || "light";
   const [selCategory, setSelCategory] = useState(1);
   const [sliderItems, setSliderItems] = useState([]);
-  const [latestNews, setLatestNews] = useState([]);
+  const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [categoryLoading, setCategoryLoading] = useState(false);
+
+  // Estado para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [hasMoreArticles, setHasMoreArticles] = useState(true);
+  const [loadingMoreArticles, setLoadingMoreArticles] = useState(false);
+
+  // Referencias para evitar llamadas duplicadas
+  const isLoadingMoreRef = useRef(false);
+  const flatListRef = useRef(null);
 
   const categories = [
     { id: 1, title: "Lo último" },
@@ -92,19 +102,30 @@ const Home = ({ navigation }) => {
     loadInitialData();
   }, []);
 
-  // Load data when category changes
+  // Reset pagination when category changes
   useEffect(() => {
     if (!loading) {
-      loadCategoryData(selCategory);
+      resetAndLoadCategory();
     }
   }, [selCategory]);
+
+  const resetAndLoadCategory = async () => {
+    // Resetear estado de paginación
+    setCurrentPage(1);
+    setTotalPages(1);
+    setHasMoreArticles(true);
+    setArticles([]);
+
+    // Cargar primera página de la categoría
+    await loadCategoryData(selCategory, 1, true);
+  };
 
   const loadInitialData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      console.log("Loading initial data...");
+      console.log("🚀 Loading initial data...");
 
       // Load featured posts for slider
       const featured = await getFeaturedNews();
@@ -114,42 +135,93 @@ const Home = ({ navigation }) => {
         setSliderItems(fallbackSliderData);
       }
 
-      // Load latest news
-      const latest = await getLatestNews();
-      if (latest && latest.length > 0) {
-        setLatestNews(latest);
+      // Load latest news with pagination info
+      const result = await getLatestNews(1);
+      if (result.posts && result.posts.length > 0) {
+        setArticles(result.posts);
+        setTotalPages(result.totalPages);
+        setHasMoreArticles(result.hasMore);
       } else {
-        setLatestNews(fallbackNewsData);
+        setArticles(fallbackNewsData);
+        setHasMoreArticles(false);
       }
     } catch (error) {
-      console.error("Error loading initial data:", error);
+      console.error("❌ Error loading initial data:", error);
       setError("Error al cargar las noticias");
 
       // Use fallback data
       setSliderItems(fallbackSliderData);
-      setLatestNews(fallbackNewsData);
+      setArticles(fallbackNewsData);
+      setHasMoreArticles(false);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadCategoryData = async (categoryId) => {
+  const loadCategoryData = async (
+    categoryId,
+    page = 1,
+    isNewCategory = false
+  ) => {
     try {
-      setCategoryLoading(true); // Activar spinner de categoría
-      const posts = await getPostsByCategory(categoryId);
-
-      if (posts && posts.length > 0) {
-        setLatestNews(posts);
-        setError(null);
+      if (isNewCategory) {
+        setCategoryLoading(true);
       } else {
-        setLatestNews(fallbackNewsData);
+        setLoadingMoreArticles(true);
+      }
+
+      console.log(`📂 Loading category ${categoryId}, page ${page}...`);
+
+      const result = await getPostsByCategory(categoryId, page);
+
+      if (result.posts && result.posts.length > 0) {
+        if (isNewCategory) {
+          // Si es una nueva categoría, reemplazar artículos
+          setArticles(result.posts);
+        } else {
+          // Si es carga de más artículos, añadir a los existentes
+          setArticles((prevArticles) => [...prevArticles, ...result.posts]);
+        }
+
+        setTotalPages(result.totalPages);
+        setHasMoreArticles(result.hasMore);
+        setError(null);
+      } else if (isNewCategory) {
+        // Solo usar fallback si es una nueva categoría y no hay resultados
+        setArticles(fallbackNewsData);
+        setHasMoreArticles(false);
       }
     } catch (error) {
+      console.error(`❌ Error loading category ${categoryId}:`, error);
       setError("Error al cargar la categoría");
-      setLatestNews(fallbackNewsData);
+
+      if (isNewCategory) {
+        setArticles(fallbackNewsData);
+        setHasMoreArticles(false);
+      }
     } finally {
-      setCategoryLoading(false); // Desactivar spinner de categoría
+      setCategoryLoading(false);
+      setLoadingMoreArticles(false);
+      isLoadingMoreRef.current = false;
     }
+  };
+
+  // Función para cargar más artículos al hacer scroll
+  const loadMoreArticles = () => {
+    if (
+      !hasMoreArticles ||
+      loadingMoreArticles ||
+      isLoadingMoreRef.current ||
+      categoryLoading
+    ) {
+      return;
+    }
+
+    console.log("📜 Loading more articles...");
+    isLoadingMoreRef.current = true;
+    const nextPage = currentPage + 1;
+    setCurrentPage(nextPage);
+    loadCategoryData(selCategory, nextPage, false);
   };
 
   const onRefresh = async () => {
@@ -159,6 +231,7 @@ const Home = ({ navigation }) => {
   };
 
   const handleCategoryPress = (categoryId) => {
+    if (categoryId === selCategory) return;
     setSelCategory(categoryId);
   };
 
@@ -173,9 +246,9 @@ const Home = ({ navigation }) => {
     );
   };
 
-  // Handle navigation to news detail - PROPERLY IMPLEMENTED
+  // Handle navigation to news detail
   const handleNewsPress = (newsItem) => {
-    console.log("🚀 Navigating to news detail with:", newsItem);
+    console.log("🚀 Navigating to news detail with:", newsItem.headline);
 
     // Ensure we have all required data for the news detail screen
     const postData = {
@@ -196,9 +269,7 @@ const Home = ({ navigation }) => {
       link: newsItem.link,
     };
 
-    console.log("📦 Post data being sent:", postData);
-
-    // NAVIGATION WITH PROPER ERROR HANDLING
+    // Navigation with error handling
     try {
       navigation.navigate("NewsDetail", { post: postData });
     } catch (error) {
@@ -207,9 +278,9 @@ const Home = ({ navigation }) => {
     }
   };
 
-  // Handle slider item press - PROPERLY IMPLEMENTED
+  // Handle slider item press
   const handleSliderPress = (sliderItem) => {
-    console.log("🎯 Slider item pressed:", sliderItem);
+    console.log("🎯 Slider item pressed:", sliderItem.headline);
 
     // Convert slider item format to post format
     const postData = {
@@ -232,9 +303,7 @@ const Home = ({ navigation }) => {
       link: sliderItem.link,
     };
 
-    console.log("📦 Slider post data being sent:", postData);
-
-    // NAVIGATION WITH PROPER ERROR HANDLING
+    // Navigation with error handling
     try {
       navigation.navigate("NewsDetail", { post: postData });
     } catch (error) {
@@ -250,6 +319,31 @@ const Home = ({ navigation }) => {
     } catch {
       return fallback;
     }
+  };
+
+  // Renderizar el footer para la lista de artículos
+  const renderFooter = () => {
+    if (loadingMoreArticles) {
+      return (
+        <View style={{ padding: 20, alignItems: "center" }}>
+          <ActivityIndicator
+            size='small'
+            color={getColor("primary", "#1e3a8a")}
+          />
+          <Text
+            style={{
+              marginTop: 5,
+              color: getColor("text", "#000000"),
+              fontSize: 12,
+            }}
+          >
+            Cargando más artículos...
+          </Text>
+        </View>
+      );
+    }
+
+    return null;
   };
 
   if (loading) {
@@ -358,54 +452,72 @@ const Home = ({ navigation }) => {
           />
         </View>
 
-        {/* News Items - FIXED NAVIGATION */}
-        <View style={{ paddingHorizontal: 15 }}>
-          {categoryLoading ? (
-            <View style={{ padding: 30, alignItems: "center" }}>
-              <ActivityIndicator
-                size='large'
-                color={getColor("primary", "#1e3a8a")}
+        {/* News Items with Infinite Scroll */}
+        {categoryLoading ? (
+          <View style={{ padding: 30, alignItems: "center" }}>
+            <ActivityIndicator
+              size='large'
+              color={getColor("primary", "#1e3a8a")}
+            />
+            <Text
+              style={{
+                marginTop: 10,
+                color: getColor("text", "#000000"),
+                fontSize: 14,
+              }}
+            >
+              Cargando{" "}
+              {categories.find((cat) => cat.id === selCategory)?.title ||
+                "categoría"}
+              ...
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={articles}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => (
+              <NewsListItem item={item} onPress={() => handleNewsPress(item)} />
+            )}
+            contentContainerStyle={{
+              paddingHorizontal: 15,
+              paddingBottom: 90,
+            }}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={{ padding: 20, alignItems: "center" }}>
+                <Text style={{ color: getColor("text", "#000000") }}>
+                  No hay noticias disponibles
+                </Text>
+                <TouchableOpacity
+                  onPress={resetAndLoadCategory}
+                  style={{
+                    marginTop: 10,
+                    padding: 10,
+                    backgroundColor: getColor("primary", "#1e3a8a"),
+                    borderRadius: 8,
+                  }}
+                >
+                  <Text style={{ color: "#ffffff" }}>Reintentar</Text>
+                </TouchableOpacity>
+              </View>
+            }
+            ListFooterComponent={renderFooter}
+            onEndReached={loadMoreArticles}
+            onEndReachedThreshold={0.3}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[getColor("primary", "#1e3a8a")]}
+                tintColor={getColor("primary", "#1e3a8a")}
+                title='Actualizando noticias...'
+                titleColor={getColor("text", "#000000")}
               />
-              <Text
-                style={{
-                  marginTop: 10,
-                  color: getColor("text", "#000000"),
-                  fontSize: 14,
-                }}
-              >
-                Cargando{" "}
-                {categories.find((cat) => cat.id === selCategory)?.title ||
-                  "categoría"}
-                ...
-              </Text>
-            </View>
-          ) : latestNews.length > 0 ? (
-            latestNews.map((item) => (
-              <NewsListItem
-                item={item}
-                key={item.id}
-                onPress={() => handleNewsPress(item)} // ✅ PROPERLY CALLING NAVIGATION
-              />
-            ))
-          ) : (
-            <View style={{ padding: 20, alignItems: "center" }}>
-              <Text style={{ color: getColor("text", "#000000") }}>
-                No hay noticias disponibles
-              </Text>
-              <TouchableOpacity
-                onPress={loadInitialData}
-                style={{
-                  marginTop: 10,
-                  padding: 10,
-                  backgroundColor: getColor("primary", "#1e3a8a"),
-                  borderRadius: 8,
-                }}
-              >
-                <Text style={{ color: "#ffffff" }}>Reintentar</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+            }
+          />
+        )}
       </ScrollView>
     </SafeAreaView>
   );
