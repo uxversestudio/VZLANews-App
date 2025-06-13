@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  ScrollView,
   RefreshControl,
   Alert,
 } from "react-native";
@@ -44,7 +43,7 @@ const Home = ({ navigation }) => {
 
   // Referencias para evitar llamadas duplicadas
   const isLoadingMoreRef = useRef(false);
-  const flatListRef = useRef(null);
+  const mainListRef = useRef(null);
 
   const categories = [
     { id: 1, title: "Lo último" },
@@ -321,8 +320,66 @@ const Home = ({ navigation }) => {
     }
   };
 
+  // Renderizar el header con el slider y categorías
+  const renderHeader = () => {
+    return (
+      <>
+        {/* Home Slider */}
+        {sliderItems.length > 0 && (
+          <View
+            style={{ marginTop: 15, position: "relative", marginLeft: -15 }}
+          >
+            <HomeSlider data={sliderItems} onItemPress={handleSliderPress} />
+          </View>
+        )}
+
+        {/* Categories */}
+        <View style={{ marginVertical: 20 }}>
+          <FlatList
+            horizontal={true}
+            showsHorizontalScrollIndicator={false}
+            bounces={false}
+            data={categories}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => (
+              <CategoryItem
+                item={item}
+                selCategory={selCategory}
+                setSelCategory={handleCategoryPress}
+                mode={mode}
+              />
+            )}
+            contentContainerStyle={{ paddingHorizontal: 15 }}
+          />
+        </View>
+
+        {/* Información de paginación */}
+        {!categoryLoading && articles.length > 0 && (
+          <View style={{ paddingHorizontal: 15, marginBottom: 10 }}>
+            <Text
+              style={{ fontSize: 12, color: getColor("textLight", "#666666") }}
+            >
+              {articles.length} artículos • Página {currentPage} de {totalPages}{" "}
+              •{hasMoreArticles ? " Scroll para más" : " Fin de resultados"}
+            </Text>
+          </View>
+        )}
+      </>
+    );
+  };
+
   // Renderizar el footer para la lista de artículos
   const renderFooter = () => {
+    if (!hasMoreArticles) {
+      return (
+        <View style={{ padding: 20, alignItems: "center" }}>
+          <Text style={{ color: getColor("text", "#000000"), fontSize: 12 }}>
+            ✓ Has visto todos los artículos
+          </Text>
+        </View>
+      );
+    }
+
     if (loadingMoreArticles) {
       return (
         <View style={{ padding: 20, alignItems: "center" }}>
@@ -410,115 +467,73 @@ const Home = ({ navigation }) => {
         </TouchableOpacity>
       )}
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-        contentContainerStyle={{ paddingBottom: 90 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[getColor("primary", "#1e3a8a")]}
-            tintColor={getColor("primary", "#1e3a8a")}
-            title='Actualizando noticias...'
-            titleColor={getColor("text", "#000000")}
+      {/* News Items with Infinite Scroll */}
+      {categoryLoading ? (
+        <View style={{ padding: 30, alignItems: "center" }}>
+          <ActivityIndicator
+            size='large'
+            color={getColor("primary", "#1e3a8a")}
           />
-        }
-      >
-        {/* Home Slider */}
-        {sliderItems.length > 0 && (
-          <View style={{ marginTop: 15, position: "relative" }}>
-            <HomeSlider data={sliderItems} onItemPress={handleSliderPress} />
-          </View>
-        )}
-
-        {/* Categories */}
-        <View style={{ marginVertical: 20 }}>
-          <FlatList
-            horizontal={true}
-            showsHorizontalScrollIndicator={false}
-            bounces={false}
-            data={categories}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => (
-              <CategoryItem
-                item={item}
-                selCategory={selCategory}
-                setSelCategory={handleCategoryPress}
-                mode={mode}
-              />
-            )}
-            contentContainerStyle={{ paddingHorizontal: 15 }}
-          />
-        </View>
-
-        {/* News Items with Infinite Scroll */}
-        {categoryLoading ? (
-          <View style={{ padding: 30, alignItems: "center" }}>
-            <ActivityIndicator
-              size='large'
-              color={getColor("primary", "#1e3a8a")}
-            />
-            <Text
-              style={{
-                marginTop: 10,
-                color: getColor("text", "#000000"),
-                fontSize: 14,
-              }}
-            >
-              Cargando{" "}
-              {categories.find((cat) => cat.id === selCategory)?.title ||
-                "categoría"}
-              ...
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            ref={flatListRef}
-            data={articles}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => (
-              <NewsListItem item={item} onPress={() => handleNewsPress(item)} />
-            )}
-            contentContainerStyle={{
-              paddingHorizontal: 15,
-              paddingBottom: 90,
+          <Text
+            style={{
+              marginTop: 10,
+              color: getColor("text", "#000000"),
+              fontSize: 14,
             }}
-            showsVerticalScrollIndicator={false}
-            ListEmptyComponent={
-              <View style={{ padding: 20, alignItems: "center" }}>
-                <Text style={{ color: getColor("text", "#000000") }}>
-                  No hay noticias disponibles
-                </Text>
-                <TouchableOpacity
-                  onPress={resetAndLoadCategory}
-                  style={{
-                    marginTop: 10,
-                    padding: 10,
-                    backgroundColor: getColor("primary", "#1e3a8a"),
-                    borderRadius: 8,
-                  }}
-                >
-                  <Text style={{ color: "#ffffff" }}>Reintentar</Text>
-                </TouchableOpacity>
-              </View>
-            }
-            ListFooterComponent={renderFooter}
-            onEndReached={loadMoreArticles}
-            onEndReachedThreshold={0.3}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={[getColor("primary", "#1e3a8a")]}
-                tintColor={getColor("primary", "#1e3a8a")}
-                title='Actualizando noticias...'
-                titleColor={getColor("text", "#000000")}
-              />
-            }
-          />
-        )}
-      </ScrollView>
+          >
+            Cargando{" "}
+            {categories.find((cat) => cat.id === selCategory)?.title ||
+              "categoría"}
+            ...
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          ref={mainListRef}
+          data={articles}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => (
+            <NewsListItem item={item} onPress={() => handleNewsPress(item)} />
+          )}
+          contentContainerStyle={{
+            paddingHorizontal: 15,
+            paddingBottom: 90,
+          }}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={
+            <View style={{ padding: 20, alignItems: "center" }}>
+              <Text style={{ color: getColor("text", "#000000") }}>
+                No hay noticias disponibles
+              </Text>
+              <TouchableOpacity
+                onPress={resetAndLoadCategory}
+                style={{
+                  marginTop: 10,
+                  padding: 10,
+                  backgroundColor: getColor("primary", "#1e3a8a"),
+                  borderRadius: 8,
+                }}
+              >
+                <Text style={{ color: "#ffffff" }}>Reintentar</Text>
+              </TouchableOpacity>
+            </View>
+          }
+          ListFooterComponent={renderFooter}
+          onEndReached={loadMoreArticles}
+          onEndReachedThreshold={0.3}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[getColor("primary", "#1e3a8a")]}
+              tintColor={getColor("primary", "#1e3a8a")}
+              title='Actualizando noticias...'
+              titleColor={getColor("text", "#000000")}
+            />
+          }
+        />
+      )}
     </SafeAreaView>
   );
 };
