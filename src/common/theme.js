@@ -82,6 +82,8 @@ export const tStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    position: "relative",
+    zIndex: 999,
   },
   row: {
     flexDirection: "row",

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "359623971901",
+    "project_id": "venezuela-news-30307",
+    "storage_bucket": "venezuela-news-30307.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:359623971901:android:79016394dd3b3063820654",
+        "android_client_info": {
+          "package_name": "com.uxverse.vzlanews"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBTXm1EvejyHegkdEN0ldJgnMfTC186QUw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

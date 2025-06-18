@@ -44,14 +44,14 @@ const BottomTabNavigator = () => {
           ),
         }}
       />
-      {/*<Tab.Screen
+      <Tab.Screen
         name='Bookmarks'
         component={Screens.Bookmarks}
         options={{
-          tabBarIcon: () => <Feather name='bookmark' size={25} />,
+          tabBarIcon: () => <MaterialCommunityIcons name='radio' size={25} />,
           tabBarSelectedIcon: () => (
             <MaterialCommunityIcons
-              name='bookmark'
+              name='radio'
               size={32}
               color={colors.primary}
             />
@@ -59,7 +59,7 @@ const BottomTabNavigator = () => {
         }}
       />
 
-      <Tab.Screen 
+      {/*<Tab.Screen 
               name="Profile" 
               component={Screens.UserProfile} 
               options={{ 

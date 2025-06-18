@@ -436,7 +436,7 @@ const Home = ({ navigation }) => {
       <View
         style={[
           tStyles.spacedRow,
-          { paddingHorizontal: 15, paddingTop: 5, paddingBottom: 10 },
+          { paddingHorizontal: 15, paddingTop: 5, paddingBottom: 20 },
         ]}
       >
         <Logo />

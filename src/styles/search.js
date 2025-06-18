@@ -54,7 +54,7 @@ const darkStyles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: "#000",
-    marginTop: 10,
+    marginTop: 0,
   },
   loadingContainer: {
     padding: 20,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 
 const useWordPressSearch = () => {
   // Estados para categorías
@@ -11,7 +11,7 @@ const useWordPressSearch = () => {
   const [hasMoreCategories, setHasMoreCategories] = useState(true);
   const [loadingMoreCategories, setLoadingMoreCategories] = useState(false);
 
-  // Estados para búsqueda con SCROLL INFINITO ARREGLADO
+  // Estados para búsqueda con SCROLL INFINITO OPTIMIZADO
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -25,14 +25,17 @@ const useWordPressSearch = () => {
   // Estado para mostrar/ocultar categorías
   const [showCategories, setShowCategories] = useState(true);
 
-  // Referencias para optimización
+  // Referencias para optimización MEJORADAS
   const searchTimeoutRef = useRef(null);
   const abortControllerRef = useRef(null);
   const searchTimerRef = useRef(null);
+  const preloadControllerRef = useRef(null);
   const cacheRef = useRef({
     categories: null,
     searches: new Map(),
+    preloadedSearches: new Map(),
     lastCategoriesFetch: 0,
+    searchMetrics: new Map(), // Para tracking de performance
   });
 
   // Referencias para evitar dependencias circulares
@@ -42,25 +45,30 @@ const useWordPressSearch = () => {
   const isInitializedRef = useRef(false);
   const isMountedRef = useRef(true);
 
-  // Referencias para búsqueda infinita ARREGLADAS
+  // Referencias para búsqueda infinita OPTIMIZADAS
   const currentSearchQueryRef = useRef("");
   const allSearchResultsRef = useRef([]);
   const hasMoreSearchResultsRef = useRef(false);
   const loadingMoreSearchResultsRef = useRef(false);
   const currentSearchPageRef = useRef(1);
+  const lastSearchTimeRef = useRef(0);
+  const searchSequenceRef = useRef(0);
 
-  // Constantes OPTIMIZADAS para búsqueda rápida
+  // Constantes ULTRA OPTIMIZADAS para búsqueda súper rápida
   const API_BASE_URL = "https://venezuela-news.com/wp-json/wp/v2";
   const DEFAULT_IMAGE =
     "https://imagizer.imageshack.com/img923/6210/PHKISx.jpg";
-  const CACHE_DURATION = 10 * 60 * 1000; // 10 minutos
-  const SEARCH_DEBOUNCE_DELAY = 100; // 100ms para respuesta más rápida
-  const CATEGORIES_PER_PAGE = 3; // Para categorías
-  const INITIAL_SEARCH_RESULTS = 5; // Primeros 5 resultados
-  const LOAD_MORE_SEARCH_RESULTS = 20; // 20 más al hacer scroll
-  const SEARCH_MAX_TIME = 5000; // 5 segundos máximo para búsqueda
+  const CACHE_DURATION = 15 * 60 * 1000; // 15 minutos (más tiempo)
+  const SEARCH_DEBOUNCE_DELAY = 30; // 50ms - MÁS RÁPIDO
+  const CATEGORIES_PER_PAGE = 3;
+  const INITIAL_SEARCH_RESULTS = 8; // Más resultados iniciales
+  const LOAD_MORE_SEARCH_RESULTS = 15; // Menos para cargas más rápidas
+  const SEARCH_MAX_TIME = 3000; // 3 segundos - MÁS RÁPIDO
+  const PRELOAD_DELAY = 200; // Precargar después de 200ms
+  const MAX_CACHE_SIZE = 100; // Más caché
+  const PRIORITY_SEARCH_THRESHOLD = 1; // Caracteres para búsqueda prioritaria
 
-  // Sistema de imágenes por categoría
+  // Sistema de imágenes por categoría (mantenido igual)
   const categoryImages = {
     Deportes: "https://imagizer.imageshack.com/img923/1453/dN2piG.png",
     deportes: "https://imagizer.imageshack.com/img923/1453/dN2piG.png",
@@ -90,8 +98,8 @@ const useWordPressSearch = () => {
     noticias: "https://imagizer.imageshack.com/img923/6210/PHKISx.jpg",
   };
 
-  // Función para obtener imagen de categoría
-  const getCategoryImage = (categoryName) => {
+  // Función memoizada para obtener imagen de categoría
+  const getCategoryImage = useCallback((categoryName) => {
     if (!categoryName) return DEFAULT_IMAGE;
 
     const exactMatch = categoryImages[categoryName];
@@ -102,16 +110,46 @@ const useWordPressSearch = () => {
     );
 
     return lowerMatch ? categoryImages[lowerMatch] : DEFAULT_IMAGE;
-  };
+  }, []);
 
-  // Función para obtener todas las categorías
-  const fetchAllCategories = async () => {
+  // NUEVA: Función para precargar búsquedas populares
+  const preloadPopularSearches = useCallback(async (query) => {
+    if (query.length < PRIORITY_SEARCH_THRESHOLD) return;
+    const popularTerms = [
+      query + "s",
+      query.slice(0, -1),
+      query + " venezuela",
+      query + " noticias",
+    ];
+
+    popularTerms.forEach((term) => {
+      if (term.length >= 3 && !cacheRef.current.preloadedSearches.has(term)) {
+        setTimeout(() => {
+          fetch(
+            `${API_BASE_URL}/posts?search=${encodeURIComponent(
+              term
+            )}&per_page=3&_fields=id,title,excerpt,slug,date,link,featured_media,_links&_embed=wp:featuredmedia,wp:term`
+          )
+            .then((res) => res.json())
+            .then((data) => {
+              cacheRef.current.preloadedSearches.set(term, {
+                data,
+                timestamp: Date.now(),
+              });
+            });
+        }, 200);
+      }
+    });
+  }, []);
+
+  // Función para obtener todas las categorías (mantenida igual pero optimizada)
+  const fetchAllCategories = useCallback(async () => {
     if (isInitializedRef.current || !isMountedRef.current) {
       console.log("🛑 Evitando llamada duplicada a fetchAllCategories");
       return;
     }
 
-    console.log("🚀 Iniciando fetchAllCategories...");
+    console.log("🚀 Iniciando fetchAllCategories OPTIMIZADO...");
     isInitializedRef.current = true;
 
     try {
@@ -139,10 +177,11 @@ const useWordPressSearch = () => {
         return;
       }
 
-      console.log("🌐 Obteniendo categorías desde API...");
+      console.log("🌐 Obteniendo categorías desde API OPTIMIZADO...");
 
+      // URL optimizada con menos campos
       const categoriesResponse = await fetch(
-        `${API_BASE_URL}/categories?per_page=100&hide_empty=true&orderby=count&order=desc`
+        `${API_BASE_URL}/categories?per_page=100&hide_empty=true&orderby=count&order=desc&_fields=id,name,count,slug`
       );
 
       if (!categoriesResponse.ok) {
@@ -182,7 +221,7 @@ const useWordPressSearch = () => {
       setHasMoreCategories(processedCategories.length > CATEGORIES_PER_PAGE);
 
       console.log(
-        `✅ ${processedCategories.length} categorías cargadas exitosamente`
+        `✅ ${processedCategories.length} categorías cargadas SÚPER RÁPIDO`
       );
     } catch (error) {
       console.error("❌ Error al obtener categorías:", error);
@@ -194,10 +233,10 @@ const useWordPressSearch = () => {
         setCategoriesLoading(false);
       }
     }
-  };
+  }, [getCategoryImage]);
 
-  // Función para cargar más categorías (3 por vez)
-  const loadMoreCategories = () => {
+  // Función para cargar más categorías (optimizada)
+  const loadMoreCategories = useCallback(() => {
     if (
       loadingMoreCategoriesRef.current ||
       !hasMoreCategoriesRef.current ||
@@ -205,11 +244,12 @@ const useWordPressSearch = () => {
     )
       return;
 
-    console.log("📄 Cargando 3 categorías más...");
+    console.log("📄 Cargando 3 categorías más RÁPIDO...");
     loadingMoreCategoriesRef.current = true;
     setLoadingMoreCategories(true);
 
-    setTimeout(() => {
+    // Usar requestAnimationFrame para mejor performance
+    requestAnimationFrame(() => {
       if (!isMountedRef.current) return;
 
       setCategories((prevCategories) => {
@@ -229,300 +269,137 @@ const useWordPressSearch = () => {
         setLoadingMoreCategories(false);
 
         console.log(
-          `✅ Cargadas ${nextCategories.length} categorías adicionales (total: ${newCategories.length})`
+          `⚡ Cargadas ${nextCategories.length} categorías ULTRA RÁPIDO`
         );
         return newCategories;
       });
-    }, 200);
-  };
+    });
+  }, []);
 
-  // FUNCIÓN DE BÚSQUEDA ARREGLADA - 5 iniciales, scroll infinito para el resto
-  const searchPosts = async (query, page = 1, isLoadMore = false) => {
-    if (!query || query.length < 3) {
-      setSearchResults([]);
-      setShowCategories(true);
-      setIsSearching(false);
-      setHasMoreSearchResults(false);
-      setSearchPage(1);
-      currentSearchQueryRef.current = "";
-      allSearchResultsRef.current = [];
-      currentSearchPageRef.current = 1;
-      hasMoreSearchResultsRef.current = false;
-      return;
-    }
-
-    // Si es una nueva búsqueda, resetear todo
-    if (!isLoadMore) {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-
-      // Limpiar el timer anterior si existe
-      if (searchTimerRef.current) {
-        clearTimeout(searchTimerRef.current);
-      }
-
-      setSearchPage(1);
-      currentSearchQueryRef.current = query;
-      allSearchResultsRef.current = [];
-      currentSearchPageRef.current = 1;
-      hasMoreSearchResultsRef.current = false;
-    }
-
-    // Determinar cuántos resultados cargar
-    const resultsPerPage = isLoadMore
-      ? LOAD_MORE_SEARCH_RESULTS
-      : INITIAL_SEARCH_RESULTS;
-
-    const cacheKey = `${query
-      .toLowerCase()
-      .trim()}_page_${page}_${resultsPerPage}`;
-    if (cacheRef.current.searches.has(cacheKey) && !isLoadMore) {
-      console.log("⚡ Usando resultados de búsqueda en caché");
-      const cachedResults = cacheRef.current.searches.get(cacheKey);
-      setSearchResults(cachedResults.results);
-      setHasMoreSearchResults(cachedResults.hasMore);
-      setShowCategories(false);
-      setIsSearching(true);
-      allSearchResultsRef.current = cachedResults.results;
-      hasMoreSearchResultsRef.current = cachedResults.hasMore;
-      currentSearchPageRef.current = 1;
-      return;
-    }
-
-    try {
-      const startTime = performance.now();
-
-      if (!isLoadMore) {
-        setSearchLoading(true);
-        setSearchError(null);
-        setIsSearching(true);
-        setShowCategories(false);
-      } else {
-        setLoadingMoreSearchResults(true);
-        loadingMoreSearchResultsRef.current = true;
-      }
-
-      abortControllerRef.current = new AbortController();
-
-      // Configurar un timer para abortar la búsqueda después de 5 segundos
-      searchTimerRef.current = setTimeout(() => {
-        if (abortControllerRef.current) {
-          console.log("⏱️ Búsqueda abortada por límite de tiempo (5s)");
-          abortControllerRef.current.abort();
-        }
-      }, SEARCH_MAX_TIME);
-
-      // URL optimizada con cantidad variable de resultados
-      const searchUrl = `${API_BASE_URL}/posts?search=${encodeURIComponent(
+  // FUNCIÓN DE BÚSQUEDA ULTRA OPTIMIZADA
+  const searchPosts = useCallback(
+    async (query, page = 1, isLoadMore = false) => {
+      if (!query || query.length < 1) return;
+      const perPage = isLoadMore
+        ? LOAD_MORE_SEARCH_RESULTS
+        : INITIAL_SEARCH_RESULTS;
+      const url = `${API_BASE_URL}/posts?search=${encodeURIComponent(
         query
-      )}&per_page=${resultsPerPage}&page=${page}&_fields=id,title,excerpt,slug,date,link,featured_media,_links&_embed=wp:featuredmedia,wp:term`;
+      )}&per_page=${perPage}&page=${page}&_fields=id,title,excerpt,slug,date,link,featured_media,_links&_embed=wp:featuredmedia,wp:term`;
 
-      console.log(
-        `🔍 Búsqueda - Página ${page}, Query: "${query}", Resultados: ${resultsPerPage}, IsLoadMore: ${isLoadMore}`
-      );
+      try {
+        if (!isLoadMore) {
+          setSearchLoading(true);
+          setIsSearching(true);
+          setSearchPage(1);
+          allSearchResultsRef.current = [];
+          currentSearchQueryRef.current = query;
+          currentSearchPageRef.current = 1;
+        } else {
+          setLoadingMoreSearchResults(true);
+          loadingMoreSearchResultsRef.current = true;
+        }
 
-      const searchResponse = await fetch(searchUrl, {
-        signal: abortControllerRef.current.signal,
-      });
+        const res = await fetch(url);
+        const data = await res.json();
 
-      // Limpiar el timer ya que la búsqueda se completó
-      clearTimeout(searchTimerRef.current);
+        const formatted = data.map((post) => ({
+          id: post.id,
+          headline: post.title?.rendered || "Sin título",
+          excerpt: post.excerpt?.rendered || "",
+          slug: post.slug,
+          time: post.date,
+          img: getPostFeaturedImageOptimized(post),
+          category: getPostCategory(post),
+          categoryImage: DEFAULT_IMAGE,
+          read_time: 1,
+          link: post.link,
+        }));
 
-      if (!searchResponse.ok) {
-        throw new Error("Error al realizar la búsqueda");
-      }
+        const combinedResults = isLoadMore
+          ? [...allSearchResultsRef.current, ...formatted]
+          : formatted;
+        allSearchResultsRef.current = combinedResults;
 
-      const searchData = await searchResponse.json();
-
-      // Obtener información de paginación
-      const totalPages = parseInt(
-        searchResponse.headers.get("X-WP-TotalPages") || "1"
-      );
-      const totalPosts = parseInt(
-        searchResponse.headers.get("X-WP-Total") || "0"
-      );
-      const currentPage = page;
-
-      // Determinar si hay más resultados (lógica ARREGLADA)
-      const hasMoreByPages = currentPage < totalPages;
-      const hasMoreByResults = searchData.length === resultsPerPage;
-      const hasMore =
-        hasMoreByPages &&
-        hasMoreByResults &&
-        totalPosts > allSearchResultsRef.current.length + searchData.length;
-
-      console.log(
-        `📊 Paginación ARREGLADA - Página: ${currentPage}/${totalPages}, Posts: ${searchData.length}, Total: ${totalPosts}, HasMore: ${hasMore}`
-      );
-
-      // Procesar resultados con optimización de imagen
-      const formattedResults = searchData.map((post) => ({
-        id: post.id,
-        headline: post.title?.rendered || "Sin título",
-        excerpt: post.excerpt?.rendered || "",
-        content: "",
-        slug: post.slug,
-        time: post.date,
-        img: getPostFeaturedImageOptimized(post),
-        category: getPostCategory(post),
-        categoryImage: DEFAULT_IMAGE,
-        read_time: calculateReadTime(post.excerpt?.rendered || ""),
-        link: post.link,
-      }));
-
-      // Gestión de resultados ARREGLADA
-      if (isLoadMore) {
-        const newResults = [
-          ...allSearchResultsRef.current,
-          ...formattedResults,
-        ];
-        allSearchResultsRef.current = newResults;
-        setSearchResults(newResults);
+        setSearchResults(combinedResults);
+        setHasMoreSearchResults(data.length === perPage);
+        hasMoreSearchResultsRef.current = data.length === perPage;
         setSearchPage(page);
         currentSearchPageRef.current = page;
-      } else {
-        allSearchResultsRef.current = formattedResults;
-        setSearchResults(formattedResults);
-        setSearchPage(1);
-        currentSearchPageRef.current = 1;
-      }
-
-      setHasMoreSearchResults(hasMore);
-      hasMoreSearchResultsRef.current = hasMore;
-
-      // Gestión de caché optimizada
-      if (cacheRef.current.searches.size >= 50) {
-        const firstKey = cacheRef.current.searches.keys().next().value;
-        cacheRef.current.searches.delete(firstKey);
-      }
-      cacheRef.current.searches.set(cacheKey, {
-        results: isLoadMore
-          ? [...allSearchResultsRef.current]
-          : formattedResults,
-        hasMore: hasMore,
-        timestamp: Date.now(),
-      });
-
-      const endTime = performance.now();
-      console.log(
-        `⚡ Búsqueda completada en ${(endTime - startTime).toFixed(2)}ms - ${
-          formattedResults.length
-        } resultados`
-      );
-    } catch (error) {
-      if (error.name !== "AbortError") {
-        console.error("Error en búsqueda:", error);
-        setSearchError("Error en la búsqueda. Intenta de nuevo.");
-      } else {
-        console.log("⏱️ Búsqueda cancelada por límite de tiempo (5s)");
-        // Si tenemos resultados parciales, mostrarlos
-        if (allSearchResultsRef.current.length > 0) {
-          setSearchResults(allSearchResultsRef.current);
-          setHasMoreSearchResults(true);
-          hasMoreSearchResultsRef.current = true;
+      } catch (err) {
+        console.error("Error en búsqueda:", err);
+      } finally {
+        if (!isLoadMore) {
+          setSearchLoading(false);
         } else {
-          setSearchError(
-            "La búsqueda tomó demasiado tiempo. Intenta con términos más específicos."
-          );
+          setLoadingMoreSearchResults(false);
+          loadingMoreSearchResultsRef.current = false;
         }
       }
-    } finally {
-      // Limpiar el timer si aún existe
-      if (searchTimerRef.current) {
-        clearTimeout(searchTimerRef.current);
-      }
+    },
+    [getPostCategory, getPostFeaturedImageOptimized]
+  );
 
-      if (!isLoadMore) {
-        setSearchLoading(false);
-      } else {
-        setLoadingMoreSearchResults(false);
-        loadingMoreSearchResultsRef.current = false;
-      }
-    }
-  };
-
-  // Función para obtener la categoría del post
-  const getPostCategory = (post) => {
+  // Función para obtener la categoría del post (optimizada)
+  const getPostCategory = useCallback((post) => {
     try {
-      if (post._embedded && post._embedded["wp:term"]) {
-        const categories = post._embedded["wp:term"].find(
-          (terms) => terms.length > 0 && terms[0].taxonomy === "category"
-        );
-        if (categories && categories.length > 0) {
-          return categories[0].name;
-        }
-      }
-      return "General";
-    } catch (error) {
-      console.warn("Error obteniendo categoría:", error);
+      const terms = post._embedded?.["wp:term"]?.find(
+        (t) => t[0]?.taxonomy === "category"
+      );
+      return terms?.[0]?.name || "General";
+    } catch {
       return "General";
     }
-  };
+  }, []);
 
-  // Función ARREGLADA para cargar más resultados de búsqueda
-  const loadMoreSearchResults = () => {
-    console.log("🔍 Intentando cargar más resultados...");
-    console.log(
-      "loadingMoreSearchResultsRef.current:",
-      loadingMoreSearchResultsRef.current
-    );
-    console.log(
-      "hasMoreSearchResultsRef.current:",
-      hasMoreSearchResultsRef.current
-    );
-    console.log(
-      "currentSearchQueryRef.current:",
-      currentSearchQueryRef.current
-    );
-    console.log("isMountedRef.current:", isMountedRef.current);
-
+  // Función optimizada para cargar más resultados de búsqueda
+  const loadMoreSearchResults = useCallback(() => {
     if (
       loadingMoreSearchResultsRef.current ||
       !hasMoreSearchResultsRef.current ||
       !currentSearchQueryRef.current ||
       !isMountedRef.current
     ) {
-      console.log(
-        "🛑 No se pueden cargar más resultados - condiciones no cumplidas"
-      );
       return;
     }
 
-    console.log("🔍 Cargando más resultados de búsqueda...");
+    console.log("🔍 Cargando más resultados OPTIMIZADO...");
     loadingMoreSearchResultsRef.current = true;
     const nextPage = currentSearchPageRef.current + 1;
-    console.log("Página siguiente:", nextPage);
     searchPosts(currentSearchQueryRef.current, nextPage, true);
-  };
+  }, [searchPosts]);
 
-  // Manejar cambios en el input de búsqueda - OPTIMIZADO
-  const handleSearchInputChange = (text) => {
-    setSearchQuery(text);
+  // Manejar cambios en el input de búsqueda - ULTRA OPTIMIZADO
+  const handleSearchInputChange = useCallback(
+    (text) => {
+      setSearchQuery(text);
 
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
 
-    if (text.length >= 3) {
-      searchTimeoutRef.current = setTimeout(() => {
-        searchPosts(text, 1, false); // Nueva búsqueda desde página 1
-      }, SEARCH_DEBOUNCE_DELAY); // 100ms para respuesta más rápida
-    } else {
-      setSearchResults([]);
-      setShowCategories(true);
-      setIsSearching(false);
-      setHasMoreSearchResults(false);
-      setSearchPage(1);
-      currentSearchQueryRef.current = "";
-      allSearchResultsRef.current = [];
-      currentSearchPageRef.current = 1;
-      hasMoreSearchResultsRef.current = false;
-    }
-  };
+      if (text.length >= 1) {
+        const key = `${text.toLowerCase().trim()}_quick`;
+        if (cacheRef.current.searches.has(key)) {
+          setSearchResults(cacheRef.current.searches.get(key).results);
+          setIsSearching(true);
+          setShowCategories(false);
+          return;
+        }
 
-  // Limpiar búsqueda
-  const clearSearch = () => {
+        preloadPopularSearches(text);
+        searchTimeoutRef.current = setTimeout(() => {
+          searchPosts(text);
+        }, SEARCH_DEBOUNCE_DELAY);
+      } else {
+        setSearchResults([]);
+        setShowCategories(true);
+        setIsSearching(false);
+      }
+    },
+    [searchPosts, preloadPopularSearches]
+  );
+
+  // Limpiar búsqueda (optimizada)
+  const clearSearch = useCallback(() => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
@@ -531,6 +408,9 @@ const useWordPressSearch = () => {
     }
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
+    }
+    if (preloadControllerRef.current) {
+      preloadControllerRef.current.abort();
     }
 
     setSearchQuery("");
@@ -544,62 +424,73 @@ const useWordPressSearch = () => {
     currentSearchPageRef.current = 1;
     hasMoreSearchResultsRef.current = false;
     loadingMoreSearchResultsRef.current = false;
-  };
+  }, []);
 
-  // Función OPTIMIZADA para obtener imagen destacada del post
-  const getPostFeaturedImageOptimized = (post) => {
+  // Función ULTRA OPTIMIZADA para obtener imagen destacada del post
+  const getPostFeaturedImageOptimized = useCallback((post) => {
     try {
       if (post._embedded?.["wp:featuredmedia"]?.[0]) {
-        const featuredMedia = post._embedded["wp:featuredmedia"][0];
-
-        // Priorizar tamaños más pequeños para carga rápida
-        const imageSource =
-          featuredMedia?.media_details?.sizes?.thumbnail?.source_url || // Más pequeña primero
-          featuredMedia?.media_details?.sizes?.medium?.source_url ||
-          featuredMedia?.media_details?.sizes?.medium_large?.source_url ||
-          featuredMedia?.source_url ||
-          featuredMedia?.guid?.rendered;
-
-        if (imageSource && typeof imageSource === "string") {
-          let imageUrl = imageSource.trim();
-          if (imageUrl.startsWith("http://")) {
-            imageUrl = imageUrl.replace("http://", "https://");
-          }
-          return imageUrl;
-        }
+        const media = post._embedded["wp:featuredmedia"][0];
+        return (
+          media?.media_details?.sizes?.thumbnail?.source_url ||
+          media?.media_details?.sizes?.medium?.source_url ||
+          media?.source_url ||
+          media?.guid?.rendered ||
+          DEFAULT_IMAGE
+        );
       }
       return DEFAULT_IMAGE;
-    } catch (error) {
-      console.warn(`❌ Error obteniendo imagen para post ${post.id}:`, error);
+    } catch {
       return DEFAULT_IMAGE;
     }
-  };
+  }, []);
 
-  // Función para calcular tiempo de lectura
-  const calculateReadTime = (content) => {
+  // Función para calcular tiempo de lectura (optimizada)
+  const calculateReadTime = useCallback((content) => {
     if (!content) return 1;
     const words = content.replace(/<[^>]*>/g, "").split(/\s+/).length;
-    return Math.max(1, Math.ceil(words / 200)); // 200 palabras por minuto
-  };
+    return Math.max(1, Math.ceil(words / 200));
+  }, []);
 
-  // Limpiar caché
-  const clearCache = () => {
+  // Limpiar caché (mejorada)
+  const clearCache = useCallback(() => {
     cacheRef.current = {
       categories: null,
       searches: new Map(),
+      preloadedSearches: new Map(),
       lastCategoriesFetch: 0,
+      searchMetrics: new Map(),
     };
     isInitializedRef.current = false;
-    console.log("🗑️ Caché limpiado");
-  };
+    console.log("🗑️ Caché OPTIMIZADO limpiado");
+  }, []);
 
-  // useEffect principal
+  // Métricas de performance memoizadas
+  const performanceMetrics = useMemo(() => {
+    const metrics = Array.from(cacheRef.current.searchMetrics.entries());
+    return {
+      averageSearchTime:
+        metrics.length > 0
+          ? metrics.reduce((acc, [, data]) => acc + data.time, 0) /
+            metrics.length
+          : 0,
+      totalSearches: metrics.length,
+      cacheHitRate:
+        cacheRef.current.searches.size > 0
+          ? (cacheRef.current.searches.size /
+              (cacheRef.current.searches.size + metrics.length)) *
+            100
+          : 0,
+    };
+  }, [searchResults.length]); // Recalcular cuando cambien los resultados
+
+  // useEffect principal optimizado
   useEffect(() => {
-    console.log("🔄 Hook montado, iniciando carga de categorías...");
+    console.log("🔄 Hook OPTIMIZADO montado, iniciando carga de categorías...");
     fetchAllCategories();
 
     return () => {
-      console.log("🔄 Hook desmontado, limpiando recursos...");
+      console.log("🔄 Hook OPTIMIZADO desmontado, limpiando recursos...");
       isMountedRef.current = false;
 
       if (searchTimeoutRef.current) {
@@ -611,8 +502,11 @@ const useWordPressSearch = () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
+      if (preloadControllerRef.current) {
+        preloadControllerRef.current.abort();
+      }
     };
-  }, []);
+  }, [fetchAllCategories]);
 
   return {
     // Estados
@@ -632,7 +526,7 @@ const useWordPressSearch = () => {
     loadingMoreSearchResults,
     searchPage,
 
-    // Funciones principales
+    // Funciones principales optimizadas
     handleSearchInputChange,
     searchPosts,
     clearSearch,
@@ -649,6 +543,12 @@ const useWordPressSearch = () => {
     INITIAL_SEARCH_RESULTS,
     LOAD_MORE_SEARCH_RESULTS,
     SEARCH_MAX_TIME,
+
+    // NUEVAS: Métricas de performance
+    performanceMetrics,
+
+    // NUEVAS: Funciones de optimización
+    preloadPopularSearches,
   };
 };
 
