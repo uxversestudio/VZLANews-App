@@ -2,7 +2,7 @@
   "expo": {
     "name": "VenezuelaNews",
     "slug": "venezuelanews",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -25,9 +25,7 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      "expo-font"
-    ],
+    "plugins": ["expo-font"],
     "extra": {
       "eas": {
         "projectId": "5e3f59dd-d4e2-428e-ac1d-74d9f85a6b95"

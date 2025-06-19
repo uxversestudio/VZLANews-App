@@ -58,16 +58,6 @@ const Search = ({ navigation }) => {
     console.log("🎯 Categorías seleccionadas por defecto:", topCategoryIds);
   }
 
-  // Funciones de navegación - ESTABLES
-  const handleSearchSubmit = () => {
-    if (searchQuery.length >= 3) {
-      navigation.navigate("SearchResults", {
-        query: searchQuery,
-        results: searchResults,
-      });
-    }
-  };
-
   const handleNewsPress = (newsItem) => {
     navigation.navigate("NewsDetail", { post: newsItem });
   };
@@ -194,7 +184,6 @@ const Search = ({ navigation }) => {
             placeholderTextColor='#999'
             value={searchQuery}
             onChangeText={handleSearchInputChange}
-            onSubmitEditing={handleSearchSubmit}
             returnKeyType='search'
             autoCorrect={false}
             autoCapitalize='none'

@@ -90,9 +90,7 @@ const lightStyles = StyleSheet.create({
     ...tStyles.endx,
     width: "100%",
     height: "100%",
-    borderWidth: 3,
     borderRadius: 43,
-    borderColor: colors.primary,
   },
   topicNameContainer: {
     width: "100%",

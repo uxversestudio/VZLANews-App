@@ -1,4 +1,3 @@
-import React from "react";
 import {
   View,
   Text,
@@ -46,13 +45,9 @@ const ImageCatItem = ({ item, selected, setSelected, wide }) => {
         imageStyle={{ borderRadius: 40 }}
       >
         <View style={[tStyles.flex1, { justifyContent: "space-between" }]}>
-          <View style={[tStyles.endy, { paddingTop: 25, paddingRight: 20 }]}>
-            {isSelected() && (
-              <View style={getStyles(mode).checkBox}>
-                <Feather name='check' size={12} color={colors.white} />
-              </View>
-            )}
-          </View>
+          <View
+            style={[tStyles.endy, { paddingTop: 25, paddingRight: 20 }]}
+          ></View>
 
           <LinearGradient
             colors={["transparent", "rgba(25,46,81,0.8)"]}
