@@ -10,13 +10,13 @@ import {
   TouchableOpacity,
   Modal,
   Dimensions,
-  Alert,
   useColorScheme,
   StatusBar,
 } from "react-native";
 import VideoPlayerWebView from "../components/VideoPlayer";
 import RadioPlayer from "../components/RadioPlayer";
 import * as ScreenOrientation from "expo-screen-orientation";
+import ModalCustom from "../components/Modal";
 
 const { width, height } = Dimensions.get("window");
 
@@ -44,8 +44,6 @@ const Bookmarks = () => {
   const [newModal, setNewModal] = useState(false);
   const [showVideo, setShowVideo] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [bookmarkTitle, setBookmarkTitle] = useState("");
-  const [searchText, setSearchText] = useState("");
   const [mediaMode, setMediaMode] = useState("radio");
   const [videoError, setVideoError] = useState(false);
   const [videoErrorMessage, setVideoErrorMessage] = useState("");
@@ -60,48 +58,6 @@ const Bookmarks = () => {
 
   const [currentStreamUrl, setCurrentStreamUrl] = useState(streamUrls[0]);
   const [streamIndex, setStreamIndex] = useState(0);
-
-  const bookmarks = [
-    {
-      id: 1,
-      title: "Public",
-      subtitle: "102 News",
-      image:
-        "https://images.stockcake.com/public/6/4/e/64e85ac8-fa25-4531-8456-fe578e14037a_large/rallying-national-pride-stockcake.jpg",
-    },
-    {
-      id: 2,
-      title: "Tech",
-      subtitle: "50 News",
-      image:
-        "https://images.stockcake.com/public/c/b/9/cb99c622-332d-4cbb-ad65-672b615654e0_large/business-news-review-stockcake.jpg",
-    },
-    {
-      id: 3,
-      title: "Music",
-      subtitle: "150 News",
-      image:
-        "https://images.stockcake.com/public/2/f/4/2f45d23b-9ba8-4b8a-9ff8-609021bbbde0_large/excited-sports-commentator-stockcake.jpg",
-    },
-    {
-      id: 4,
-      title: "Health",
-      subtitle: "25 News",
-      image:
-        "https://images.stockcake.com/public/f/1/1/f1187ba6-4ea7-4dd5-9a3c-7f3990d15ea7_large/political-event-broadcast-stockcake.jpg",
-    },
-    {
-      id: 5,
-      title: "Religious",
-      subtitle: "18 News",
-      image:
-        "https://images.stockcake.com/public/5/1/1/511aa674-0c8b-4241-bb42-1fe5d15cb077_large/educational-science-fun-stockcake.jpg",
-    },
-  ];
-
-  const filteredBookmarks = bookmarks.filter((bookmark) =>
-    bookmark.title.toLowerCase().includes(searchText.toLowerCase())
-  );
 
   const handleVideoError = (error) => {
     console.log("Stream error:", error);
@@ -119,29 +75,22 @@ const Bookmarks = () => {
         setVideoError(false);
       }, 2000);
     } else {
-      Alert.alert(
-        "Error de Video",
-        "No se pudo cargar ningún stream de video. La radio está disponible.",
-        [
-          {
-            text: "Reintentar Video",
-            onPress: () => {
-              setStreamIndex(0);
-              setCurrentStreamUrl(streamUrls[0]);
-              setVideoError(false);
-            },
-          },
-          {
-            text: "Usar Radio",
-            onPress: () => {
-              setMediaMode("radio");
-              setVideoError(false);
-            },
-          },
-        ],
-        { cancelable: false }
-      );
+      // Mostrar el modal cuando todos los streams fallan
+      setNewModal(true);
     }
+  };
+
+  const handleRetryVideo = () => {
+    setStreamIndex(0);
+    setCurrentStreamUrl(streamUrls[0]);
+    setVideoError(false);
+    setNewModal(false);
+  };
+
+  const handleUseRadio = () => {
+    setMediaMode("radio");
+    setVideoError(false);
+    setNewModal(false);
   };
 
   const toggleMedia = () => {
@@ -174,21 +123,6 @@ const Bookmarks = () => {
     } catch (error) {
       console.log("Error changing orientation:", error);
     }
-  };
-
-  const handleSaveBookmark = () => {
-    if (bookmarkTitle.trim()) {
-      console.log("Saving bookmark:", bookmarkTitle);
-      setBookmarkTitle("");
-      setNewModal(false);
-      Alert.alert("Éxito", "Bookmark guardado correctamente");
-    } else {
-      Alert.alert("Error", "Por favor ingresa un título para el bookmark");
-    }
-  };
-
-  const handleBookmarkPress = (bookmark) => {
-    Alert.alert("Bookmark", `Seleccionaste: ${bookmark.title}`);
   };
 
   const styles = getStyles(isDark, isFullscreen);
@@ -345,6 +279,40 @@ const Bookmarks = () => {
           </View>
         )}
       </ScrollView>
+
+      {/* Modal de Error de Video */}
+      {newModal && (
+        <ModalCustom setStatus={setNewModal} height='50%'>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Icon name='error' size={48} color='#ef4444' />
+              <Text style={styles.modalTitle}>Error de Video</Text>
+              <Text style={styles.modalMessage}>
+                No se pudo cargar ningún stream de video. La radio está
+                disponible.
+              </Text>
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.retryButton]}
+                onPress={handleRetryVideo}
+              >
+                <Icon name='video' size={20} color='#fff' />
+                <Text style={styles.retryButtonText}>Reintentar Video</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.radioButton]}
+                onPress={handleUseRadio}
+              >
+                <Icon name='radio' size={20} color='#fff' />
+                <Text style={styles.radioButtonText}>Usar Radio</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ModalCustom>
+      )}
     </SafeAreaView>
   );
 };
@@ -424,7 +392,7 @@ const getStyles = (isDark, isFullscreen) =>
     },
     centeredMediaContainer: {
       width: "100%",
-      minHeight: height * 0.4,
+      minHeight: height * 0.8,
       justifyContent: "center",
       alignItems: "center",
       paddingHorizontal: 20,
@@ -507,6 +475,59 @@ const getStyles = (isDark, isFullscreen) =>
     },
     showMediaBtnText: {
       color: isDark ? "#fff" : "#000",
+      fontSize: 16,
+      fontWeight: "600",
+    },
+    // Estilos para el contenido del modal
+    modalContent: {
+      flex: 1,
+      justifyContent: "space-between",
+      paddingVertical: 20,
+    },
+    modalHeader: {
+      alignItems: "center",
+      paddingHorizontal: 20,
+    },
+    modalTitle: {
+      fontSize: 24,
+      fontWeight: "bold",
+      color: "#000",
+      marginTop: 8,
+      marginBottom: 12,
+      textAlign: "center",
+    },
+    modalMessage: {
+      fontSize: 16,
+      color: "#6b7280",
+      textAlign: "center",
+      lineHeight: 24,
+    },
+    modalButtons: {
+      paddingHorizontal: 20,
+      gap: 12,
+    },
+    modalButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 16,
+      paddingHorizontal: 24,
+      borderRadius: 12,
+      gap: 8,
+    },
+    retryButton: {
+      backgroundColor: "#3b82f6",
+    },
+    radioButton: {
+      backgroundColor: "#10b981",
+    },
+    retryButtonText: {
+      color: "#fff",
+      fontSize: 16,
+      fontWeight: "600",
+    },
+    radioButtonText: {
+      color: "#fff",
       fontSize: 16,
       fontWeight: "600",
     },
