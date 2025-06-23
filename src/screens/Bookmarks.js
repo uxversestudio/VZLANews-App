@@ -8,20 +8,18 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Modal,
   Dimensions,
-  Image,
   Alert,
   useColorScheme,
   StatusBar,
 } from "react-native";
 import VideoPlayerWebView from "../components/VideoPlayer";
+import RadioPlayer from "../components/RadioPlayer";
 import * as ScreenOrientation from "expo-screen-orientation";
 
 const { width, height } = Dimensions.get("window");
 
-// Componente de icono simple usando emojis y símbolos
 const Icon = ({ name, size = 24, color = "#000", style }) => {
   const iconMap = {
     "arrow-left": "←",
@@ -30,6 +28,9 @@ const Icon = ({ name, size = 24, color = "#000", style }) => {
     bookmark: "🔖",
     plus: "+",
     expand: "⛶",
+    radio: "📻",
+    video: "📺",
+    error: "⚠️",
   };
 
   return (
@@ -45,16 +46,20 @@ const Bookmarks = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [bookmarkTitle, setBookmarkTitle] = useState("");
   const [searchText, setSearchText] = useState("");
+  const [mediaMode, setMediaMode] = useState("radio");
+  const [videoError, setVideoError] = useState(false);
+  const [videoErrorMessage, setVideoErrorMessage] = useState("");
   const mode = useColorScheme();
   const isDark = mode === "dark";
 
-  // URLs de streams alternativos para probar
   const streamUrls = [
     "https://vcp15.myplaytv.com/venenews/venenews/playlist.m3u8",
     "https://vcp15.myplaytv.com/venenews/venenews/chunklist.m3u8",
+    "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
   ];
 
   const [currentStreamUrl, setCurrentStreamUrl] = useState(streamUrls[0]);
+  const [streamIndex, setStreamIndex] = useState(0);
 
   const bookmarks = [
     {
@@ -100,17 +105,63 @@ const Bookmarks = () => {
 
   const handleVideoError = (error) => {
     console.log("Stream error:", error);
+    const errorMsg = error?.message || "Error de conexión de video";
+    setVideoError(true);
+    setVideoErrorMessage(errorMsg);
+
+    if (streamIndex < streamUrls.length - 1) {
+      const nextIndex = streamIndex + 1;
+      setStreamIndex(nextIndex);
+      setCurrentStreamUrl(streamUrls[nextIndex]);
+      console.log(`Trying next stream: ${streamUrls[nextIndex]}`);
+
+      setTimeout(() => {
+        setVideoError(false);
+      }, 2000);
+    } else {
+      Alert.alert(
+        "Error de Video",
+        "No se pudo cargar ningún stream de video. La radio está disponible.",
+        [
+          {
+            text: "Reintentar Video",
+            onPress: () => {
+              setStreamIndex(0);
+              setCurrentStreamUrl(streamUrls[0]);
+              setVideoError(false);
+            },
+          },
+          {
+            text: "Usar Radio",
+            onPress: () => {
+              setMediaMode("radio");
+              setVideoError(false);
+            },
+          },
+        ],
+        { cancelable: false }
+      );
+    }
   };
 
-  const toggleVideo = () => {
+  const toggleMedia = () => {
     setShowVideo(!showVideo);
+  };
+
+  const switchMediaMode = (mode) => {
+    console.log(`Switching media mode to: ${mode}`);
+    setMediaMode(mode);
+    setVideoError(false);
+    setVideoErrorMessage("");
+    if (!showVideo) {
+      setShowVideo(true);
+    }
   };
 
   const handleFullscreenToggle = async () => {
     try {
       setIsFullscreen(!isFullscreen);
 
-      // También cambiar la orientación de la pantalla
       if (!isFullscreen) {
         await ScreenOrientation.lockAsync(
           ScreenOrientation.OrientationLock.LANDSCAPE
@@ -142,8 +193,7 @@ const Bookmarks = () => {
 
   const styles = getStyles(isDark, isFullscreen);
 
-  // SOLUCIÓN: Usar Modal para pantalla completa en lugar de View condicional
-  if (isFullscreen) {
+  if (isFullscreen && mediaMode === "video") {
     return (
       <Modal
         visible={isFullscreen}
@@ -183,36 +233,114 @@ const Bookmarks = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Video perfectamente centrado */}
         {showVideo && (
-          <View style={styles.centeredVideoContainer}>
-            <View style={styles.videoWrapper}>
-              <VideoPlayerWebView
-                source={{ uri: currentStreamUrl }}
-                style={styles.centeredVideo}
-                controls={true}
-                resizeMode='contain'
-                paused={false}
-                onError={handleVideoError}
-                isFullscreen={isFullscreen}
-                onFullscreenToggle={handleFullscreenToggle}
-              />
+          <View style={styles.mediaSelectorContainer}>
+            <View style={styles.mediaSelector}>
               <TouchableOpacity
-                style={styles.videoCloseBtn}
-                onPress={toggleVideo}
+                style={[
+                  styles.mediaSelectorBtn,
+                  mediaMode === "video" && styles.mediaSelectorBtnActive,
+                ]}
+                onPress={() => switchMediaMode("video")}
               >
-                <Icon name='x' size={16} color='#fff' />
+                <Icon
+                  name='video'
+                  size={16}
+                  color={
+                    mediaMode === "video" ? "#fff" : isDark ? "#fff" : "#000"
+                  }
+                />
+                <Text
+                  style={[
+                    styles.mediaSelectorText,
+                    mediaMode === "video" && styles.mediaSelectorTextActive,
+                  ]}
+                >
+                  Video
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.mediaSelectorBtn,
+                  mediaMode === "radio" && styles.mediaSelectorBtnActive,
+                ]}
+                onPress={() => switchMediaMode("radio")}
+              >
+                <Icon
+                  name='radio'
+                  size={16}
+                  color={
+                    mediaMode === "radio" ? "#fff" : isDark ? "#fff" : "#000"
+                  }
+                />
+                <Text
+                  style={[
+                    styles.mediaSelectorText,
+                    mediaMode === "radio" && styles.mediaSelectorTextActive,
+                  ]}
+                >
+                  Radio
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {/* Botón para mostrar video cuando está oculto */}
+        {showVideo && (
+          <View style={styles.centeredMediaContainer}>
+            {mediaMode === "video" ? (
+              <View style={styles.videoWrapper}>
+                <VideoPlayerWebView
+                  source={{ uri: currentStreamUrl }}
+                  style={styles.centeredVideo}
+                  controls={true}
+                  resizeMode='contain'
+                  paused={false}
+                  onError={handleVideoError}
+                  isFullscreen={isFullscreen}
+                  onFullscreenToggle={handleFullscreenToggle}
+                />
+                <TouchableOpacity
+                  style={styles.mediaCloseBtn}
+                  onPress={toggleMedia}
+                >
+                  <Icon name='x' size={16} color='#fff' />
+                </TouchableOpacity>
+                {videoError && (
+                  <View style={styles.errorOverlay}>
+                    <Icon name='error' size={16} color='#fff' />
+                    <Text style={styles.errorText}>
+                      {videoErrorMessage || "Error de conexión"}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View style={styles.radioWrapper}>
+                <RadioPlayer isDark={isDark} />
+                <TouchableOpacity
+                  style={styles.mediaCloseBtn}
+                  onPress={toggleMedia}
+                >
+                  <Icon name='x' size={16} color='#fff' />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+
         {!showVideo && (
-          <View style={styles.showVideoContainer}>
-            <TouchableOpacity style={styles.showVideoBtn} onPress={toggleVideo}>
-              <Icon name='expand' size={20} color={isDark ? "#fff" : "#000"} />
-              <Text style={styles.showVideoBtnText}>Mostrar Video</Text>
+          <View style={styles.showMediaContainer}>
+            <TouchableOpacity style={styles.showMediaBtn} onPress={toggleMedia}>
+              <Icon
+                name={mediaMode === "video" ? "video" : "radio"}
+                size={20}
+                color={isDark ? "#fff" : "#000"}
+              />
+              <Text style={styles.showMediaBtnText}>
+                Mostrar {mediaMode === "video" ? "Video" : "Radio"}
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -262,13 +390,45 @@ const getStyles = (isDark, isFullscreen) =>
     scrollContent: {
       flexGrow: 1,
     },
-    centeredVideoContainer: {
+    mediaSelectorContainer: {
+      paddingHorizontal: 20,
+      paddingTop: 40,
+      paddingBottom: 10,
+    },
+    mediaSelector: {
+      flexDirection: "row",
+      backgroundColor: isDark ? "#374151" : "#f3f4f6",
+      borderRadius: 12,
+      padding: 4,
+    },
+    mediaSelectorBtn: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      gap: 6,
+    },
+    mediaSelectorBtnActive: {
+      backgroundColor: "#3b82f6",
+    },
+    mediaSelectorText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: isDark ? "#fff" : "#000",
+    },
+    mediaSelectorTextActive: {
+      color: "#fff",
+    },
+    centeredMediaContainer: {
       width: "100%",
-      minHeight: height * 1,
+      minHeight: height * 0.4,
       justifyContent: "center",
       alignItems: "center",
       paddingHorizontal: 20,
-      paddingVertical: 30,
+      paddingVertical: 20,
       position: "relative",
     },
     videoWrapper: {
@@ -284,11 +444,16 @@ const getStyles = (isDark, isFullscreen) =>
       shadowRadius: 12,
       backgroundColor: "#000",
     },
+    radioWrapper: {
+      position: "relative",
+      width: "100%",
+      maxWidth: 400,
+    },
     centeredVideo: {
       width: "100%",
       height: "100%",
     },
-    videoCloseBtn: {
+    mediaCloseBtn: {
       position: "absolute",
       top: 12,
       right: 12,
@@ -301,15 +466,32 @@ const getStyles = (isDark, isFullscreen) =>
       zIndex: 1000,
       elevation: 5,
     },
-    showVideoContainer: {
+    errorOverlay: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: "rgba(239, 68, 68, 0.9)",
+      padding: 12,
+      alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: 8,
+    },
+    errorText: {
+      color: "#fff",
+      fontSize: 12,
+      fontWeight: "600",
+    },
+    showMediaContainer: {
       width: "100%",
       minHeight: 100,
       justifyContent: "center",
       alignItems: "center",
       paddingHorizontal: 20,
-      paddingVertical: 30,
+      paddingVertical: 50,
     },
-    showVideoBtn: {
+    showMediaBtn: {
       flexDirection: "row",
       alignItems: "center",
       backgroundColor: isDark ? "#374151" : "#e5e7eb",
@@ -323,187 +505,10 @@ const getStyles = (isDark, isFullscreen) =>
       shadowOpacity: 0.2,
       shadowRadius: 4,
     },
-    showVideoBtnText: {
+    showMediaBtnText: {
       color: isDark ? "#fff" : "#000",
       fontSize: 16,
       fontWeight: "600",
-    },
-    content: {
-      flex: 1,
-      paddingHorizontal: 20,
-      paddingTop: 20,
-      paddingBottom: 40,
-    },
-    headingContainer: {
-      marginBottom: 24,
-      alignItems: "center",
-    },
-    heading: {
-      fontSize: 28,
-      fontWeight: "bold",
-      marginBottom: 8,
-      textAlign: "center",
-    },
-    subheading: {
-      fontSize: 16,
-      textAlign: "center",
-    },
-    searchContainer: {
-      marginBottom: 24,
-    },
-    searchBar: {
-      flexDirection: "row",
-      alignItems: "center",
-      borderRadius: 16,
-      paddingHorizontal: 20,
-      height: 56,
-      elevation: 2,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.1,
-      shadowRadius: 2,
-    },
-    searchIcon: {
-      marginRight: 12,
-    },
-    searchInput: {
-      flex: 1,
-      fontSize: 16,
-    },
-    bookmarkGrid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      justifyContent: "space-between",
-      paddingBottom: 20,
-    },
-    bookmarkCard: {
-      width: (width - 60) / 2,
-      aspectRatio: 4 / 3,
-      marginBottom: 20,
-      borderRadius: 16,
-      overflow: "hidden",
-      position: "relative",
-      elevation: 6,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.2,
-      shadowRadius: 6,
-    },
-    bookmarkImage: {
-      width: "100%",
-      height: "100%",
-    },
-    bookmarkOverlay: {
-      position: "absolute",
-      bottom: 0,
-      left: 0,
-      right: 0,
-      height: "60%",
-      backgroundColor: "rgba(0,0,0,0.7)",
-    },
-    bookmarkContent: {
-      position: "absolute",
-      bottom: 16,
-      left: 16,
-      right: 16,
-    },
-    bookmarkTitle: {
-      color: "#fff",
-      fontSize: 18,
-      fontWeight: "700",
-      marginBottom: 4,
-    },
-    bookmarkSubtitle: {
-      color: "rgba(255,255,255,0.8)",
-      fontSize: 14,
-    },
-    addBookmarkCard: {
-      width: (width - 60) / 2,
-      aspectRatio: 4 / 3,
-      marginBottom: 20,
-      borderRadius: 16,
-      borderWidth: 2,
-      borderStyle: "dashed",
-      justifyContent: "center",
-      alignItems: "center",
-      backgroundColor: isDark
-        ? "rgba(55, 65, 81, 0.3)"
-        : "rgba(243, 244, 246, 0.5)",
-    },
-    addBookmarkText: {
-      fontSize: 14,
-      marginTop: 8,
-      fontWeight: "600",
-      textAlign: "center",
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: "rgba(0,0,0,0.7)",
-      justifyContent: "center",
-      alignItems: "center",
-      paddingHorizontal: 20,
-    },
-    modalContent: {
-      width: "100%",
-      maxWidth: 400,
-      borderRadius: 20,
-      padding: 28,
-      elevation: 15,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.4,
-      shadowRadius: 12,
-    },
-    modalTitle: {
-      fontSize: 22,
-      fontWeight: "bold",
-      textAlign: "center",
-      marginBottom: 28,
-    },
-    inputContainer: {
-      flexDirection: "row",
-      alignItems: "center",
-      borderRadius: 16,
-      paddingHorizontal: 20,
-      height: 56,
-      marginBottom: 28,
-    },
-    inputIcon: {
-      marginRight: 12,
-    },
-    textInput: {
-      flex: 1,
-      fontSize: 16,
-    },
-    modalButtons: {
-      flexDirection: "row",
-      gap: 16,
-    },
-    cancelBtn: {
-      flex: 1,
-      backgroundColor: "#e5e7eb",
-      height: 52,
-      borderRadius: 16,
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    cancelBtnText: {
-      color: "#374151",
-      fontWeight: "600",
-      fontSize: 16,
-    },
-    saveBtn: {
-      flex: 1,
-      backgroundColor: "#3b82f6",
-      height: 52,
-      borderRadius: 16,
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    saveBtnText: {
-      color: "#fff",
-      fontWeight: "600",
-      fontSize: 16,
     },
   });
 
