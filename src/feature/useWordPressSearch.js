@@ -96,6 +96,48 @@ const useWordPressSearch = () => {
     "redes sociales": "https://imagizer.imageshack.com/img924/6135/ZbKSvo.png",
     Noticias: "https://imagizer.imageshack.com/img923/6210/PHKISx.jpg",
     noticias: "https://imagizer.imageshack.com/img923/6210/PHKISx.jpg",
+    Reportajes: "https://imagizer.imageshack.com/img922/3828/TU1fCG.png",
+    reportajes: "https://imagizer.imageshack.com/img922/3828/TU1fCG.png",
+    "Sin Categorizar": "https://imagizer.imageshack.com/img924/3230/S9n5ZG.png",
+    "sin categorizar": "https://imagizer.imageshack.com/img924/3230/S9n5ZG.png",
+    Internacionales: "https://imagizer.imageshack.com/img923/4407/TiNPhE.png",
+    internacionales: "https://imagizer.imageshack.com/img923/4407/TiNPhE.png",
+    Videos: "https://imagizer.imageshack.com/img923/4097/VwpvR5.png",
+    videos: "https://imagizer.imageshack.com/img923/4097/VwpvR5.png",
+    "Venezuela En Drone":
+      "https://imagizer.imageshack.com/img922/5536/tQKJGj.png",
+    "venezuela en drone":
+      "https://imagizer.imageshack.com/img922/5536/tQKJGj.png",
+    "Ciencia y Tecnología":
+      "https://imagizer.imageshack.com/img923/9492/7LmETq.png",
+    "ciencia y tecnologia":
+      "https://imagizer.imageshack.com/img923/9492/7LmETq.png",
+    Banca: "https://imagizer.imageshack.com/img922/3345/7OQlnK.png",
+    banca: "https://imagizer.imageshack.com/img922/3345/7OQlnK.png",
+    "En Escena": "https://imagizer.imageshack.com/img923/4091/54rxOo.png",
+    "en escena": "https://imagizer.imageshack.com/img923/4091/54rxOo.png",
+    "Lo + Viral": "https://imagizer.imageshack.com/img923/6002/g2VpJO.png",
+    "lo + viral": "https://imagizer.imageshack.com/img923/6002/g2VpJO.png",
+    Farándula: "https://imagizer.imageshack.com/img923/364/l7ItLO.png",
+    farandula: "https://imagizer.imageshack.com/img923/364/l7ItLO.png",
+    Política: "https://imagizer.imageshack.com/img924/3195/fMiLNr.png",
+    política: "https://imagizer.imageshack.com/img924/3195/fMiLNr.png",
+    Especiales: "https://imagizer.imageshack.com/img923/5553/smRodj.png",
+    especiales: "https://imagizer.imageshack.com/img923/5553/smRodj.png",
+    "Portada Principal":
+      "https://imagizer.imageshack.com/img923/5308/6e2yQu.png",
+    "portada principal":
+      "https://imagizer.imageshack.com/img923/5308/6e2yQu.png",
+    "Alex Saab": "https://imagizer.imageshack.com/img922/1521/48oeCe.png",
+    "alex saab": "https://imagizer.imageshack.com/img922/1521/48oeCe.png",
+    Gastronomía: "https://imagizer.imageshack.com/img922/1885/xBSC0i.png",
+    gastronomia: "https://imagizer.imageshack.com/img922/1885/xBSC0i.png",
+    Economía: "https://imagizer.imageshack.com/img922/6009/T5tjuV.png",
+    economia: "https://imagizer.imageshack.com/img922/6009/T5tjuV.png",
+    Sucesos: "https://imagizer.imageshack.com/img922/1944/8RqAHC.png",
+    sucesos: "https://imagizer.imageshack.com/img922/1944/8RqAHC.png",
+    Regiones: "https://imagizer.imageshack.com/img924/3267/dGKSq2.png",
+    regiones: "https://imagizer.imageshack.com/img924/3267/dGKSq2.png",
   };
 
   // Función memoizada para obtener imagen de categoría

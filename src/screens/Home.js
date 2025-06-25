@@ -223,10 +223,27 @@ const Home = ({ navigation }) => {
     loadCategoryData(selCategory, nextPage, false);
   };
 
-  const onRefresh = async () => {
+  // Función para refrescar solo los artículos de la categoría actual
+  const onRefreshCategory = async () => {
     setRefreshing(true);
-    await loadInitialData();
-    setRefreshing(false);
+    try {
+      console.log("🔄 Refreshing category articles only...");
+
+      // Resetear estado de paginación
+      setCurrentPage(1);
+      setTotalPages(1);
+      setHasMoreArticles(true);
+      setArticles([]);
+
+      // Cargar solo la categoría actual, no el slider
+      await loadCategoryData(selCategory, 1, true);
+      setError(null);
+    } catch (error) {
+      console.error("❌ Error refreshing category:", error);
+      setError("Error al actualizar la categoría");
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleCategoryPress = (categoryId) => {
@@ -237,9 +254,9 @@ const Home = ({ navigation }) => {
   const showErrorAlert = () => {
     Alert.alert(
       "Error de conexión",
-      "No se pudieron cargar las noticias. Verifica tu conexión a internet e intenta nuevamente.",
+      "No se pudieron cargar los artículos. Verifica tu conexión a internet e intenta nuevamente.",
       [
-        { text: "Reintentar", onPress: loadInitialData },
+        { text: "Reintentar", onPress: onRefreshCategory },
         { text: "Cancelar", style: "cancel" },
       ]
     );
@@ -320,19 +337,10 @@ const Home = ({ navigation }) => {
     }
   };
 
-  // Renderizar el header con el slider y categorías
-  const renderHeader = () => {
+  // Renderizar solo el contenido actualizable (slider + categorías)
+  const renderUpdatableHeader = () => {
     return (
       <>
-        {/* Home Slider */}
-        {sliderItems.length > 0 && (
-          <View
-            style={{ marginTop: 15, position: "relative", marginLeft: -15 }}
-          >
-            <HomeSlider data={sliderItems} onItemPress={handleSliderPress} />
-          </View>
-        )}
-
         {/* Categories */}
         <View style={{ marginVertical: 20 }}>
           <FlatList
@@ -432,7 +440,7 @@ const Home = ({ navigation }) => {
       edges={["top", "right", "left"]}
       style={getStyles(mode).container}
     >
-      {/* Logo & Notification */}
+      {/* Logo & Notification - FIJO */}
       <View
         style={[
           tStyles.spacedRow,
@@ -467,7 +475,13 @@ const Home = ({ navigation }) => {
         </TouchableOpacity>
       )}
 
-      {/* News Items with Infinite Scroll */}
+      {sliderItems.length > 0 && (
+        <View style={{ marginTop: 15, position: "relative", marginLeft: 0 }}>
+          <HomeSlider data={sliderItems} onItemPress={handleSliderPress} />
+        </View>
+      )}
+
+      {/* Contenido actualizable */}
       {categoryLoading ? (
         <View style={{ padding: 30, alignItems: "center" }}>
           <ActivityIndicator
@@ -500,14 +514,14 @@ const Home = ({ navigation }) => {
             paddingBottom: 90,
           }}
           showsVerticalScrollIndicator={false}
-          ListHeaderComponent={renderHeader}
+          ListHeaderComponent={renderUpdatableHeader}
           ListEmptyComponent={
             <View style={{ padding: 20, alignItems: "center" }}>
               <Text style={{ color: getColor("text", "#000000") }}>
                 No hay noticias disponibles
               </Text>
               <TouchableOpacity
-                onPress={resetAndLoadCategory}
+                onPress={onRefreshCategory}
                 style={{
                   marginTop: 10,
                   padding: 10,
@@ -525,10 +539,10 @@ const Home = ({ navigation }) => {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={onRefresh}
+              onRefresh={onRefreshCategory}
               colors={[getColor("primary", "#1e3a8a")]}
               tintColor={getColor("primary", "#1e3a8a")}
-              title='Actualizando noticias...'
+              title='Actualizando artículos...'
               titleColor={getColor("text", "#000000")}
             />
           }

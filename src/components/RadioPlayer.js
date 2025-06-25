@@ -14,7 +14,7 @@ import ActivaFMService from "../feature/AudioService";
 
 const Icon = ({ name, size = 24, color = "#000" }) => {
   const iconMap = {
-    play: "▶️",
+    play: "▶",
     pause: "⏸️",
     volume: "🔊",
     radio: "📻",
@@ -26,7 +26,7 @@ const Icon = ({ name, size = 24, color = "#000" }) => {
   };
 
   return (
-    <Text style={{ fontSize: size, color, textAlign: "center" }}>
+    <Text style={{ fontSize: size, color, textAlign: "center", marginTop: -6 }}>
       {iconMap[name] || "?"}
     </Text>
   );
@@ -169,17 +169,6 @@ const RadioPlayer = ({ isDark = false, style }) => {
         </View>
 
         <View style={styles.artworkContainer}>
-          <View style={styles.artworkWrapper}>
-            <Image
-              source={{ uri: station?.artwork }}
-              style={styles.artwork}
-              onError={() => console.log("Error loading artwork")}
-            />
-            <View style={styles.logoOverlay}>
-              <Text style={styles.logoText}>ACTIVA</Text>
-              <Text style={styles.frequencyText}>104.9 FM</Text>
-            </View>
-          </View>
           {isLoading && (
             <View style={styles.bufferingOverlay}>
               <ActivityIndicator size='small' color='#fff' />
@@ -189,7 +178,7 @@ const RadioPlayer = ({ isDark = false, style }) => {
         </View>
 
         <View style={styles.stationInfo}>
-          <Text style={styles.stationTitle}>Activa 104.9 FM</Text>
+          <Text style={styles.stationTitle}>Venezuela News Radio</Text>
 
           {isPlaying && !isLoading && !error && (
             <View style={styles.liveIndicator}>
@@ -216,17 +205,6 @@ const RadioPlayer = ({ isDark = false, style }) => {
         <View style={styles.controls}>
           <TouchableOpacity
             style={[
-              styles.controlButton,
-              isLoading && styles.controlButtonDisabled,
-            ]}
-            onPress={handleInfo}
-            disabled={isLoading}
-          >
-            <Icon name='info' size={20} color={isDark ? "#fff" : "#000"} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
               styles.playButton,
               isPlaying && styles.playButtonActive,
               isLoading && styles.playButtonLoading,
@@ -241,23 +219,9 @@ const RadioPlayer = ({ isDark = false, style }) => {
                 name={isPlaying ? "pause" : "play"}
                 size={28}
                 color='#fff'
+                tint='#000'
               />
             )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.controlButton,
-              isLoading && styles.controlButtonDisabled,
-            ]}
-            onPress={handleRetry}
-            disabled={isLoading}
-          >
-            <Icon
-              name='refresh'
-              size={20}
-              color={isLoading ? "#ccc" : isDark ? "#fff" : "#000"}
-            />
           </TouchableOpacity>
         </View>
 
@@ -269,7 +233,7 @@ const RadioPlayer = ({ isDark = false, style }) => {
               : isLoading
               ? "Conectando a Venezuela..."
               : isPlaying
-              ? "🇻🇪 Transmitiendo desde Guárico"
+              ? "🇻🇪 Transmitiendo"
               : "Listo para reproducir"}
           </Text>
           {error && (
@@ -520,14 +484,16 @@ const getActivaFMStyles = (isDark) =>
       width: 75,
       height: 75,
       borderRadius: 37.5,
+      paddingTop: -50,
       backgroundColor: "#e53e3e",
       justifyContent: "center",
       alignItems: "center",
       elevation: 8,
       shadowColor: "#e53e3e",
-      shadowOffset: { width: 0, height: 4 },
+      shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.4,
       shadowRadius: 8,
+      position: "relative",
     },
     playButtonActive: {
       backgroundColor: "#c53030",

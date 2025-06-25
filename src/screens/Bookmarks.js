@@ -49,11 +49,8 @@ const Bookmarks = () => {
   const [videoErrorMessage, setVideoErrorMessage] = useState("");
   const mode = useColorScheme();
   const isDark = mode === "dark";
-
   const streamUrls = [
     "https://vcp15.myplaytv.com/venenews/venenews/playlist.m3u8",
-    "https://vcp15.myplaytv.com/venenews/venenews/chunklist.m3u8",
-    "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
   ];
 
   const [currentStreamUrl, setCurrentStreamUrl] = useState(streamUrls[0]);
@@ -285,29 +282,30 @@ const Bookmarks = () => {
         <ModalCustom setStatus={setNewModal} height='50%'>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Icon name='error' size={48} color='#ef4444' />
-              <Text style={styles.modalTitle}>Error de Video</Text>
-              <Text style={styles.modalMessage}>
-                No se pudo cargar ningún stream de video. La radio está
-                disponible.
+              <Text style={styles.modalTitle}>
+                Stream no disponible en este momento
               </Text>
+              <Text style={styles.modalMessage}>
+                Parece que no hay transmisión en vivo en este momento. Pero
+                puedes seguir escuchando las noticias en modo radio.
+              </Text>
+              <Text style={[styles.modalMessage, styles.modalMessage2]}></Text>
             </View>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.retryButton]}
-                onPress={handleRetryVideo}
-              >
-                <Icon name='video' size={20} color='#fff' />
-                <Text style={styles.retryButtonText}>Reintentar Video</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalButton, styles.radioButton]}
                 onPress={handleUseRadio}
               >
-                <Icon name='radio' size={20} color='#fff' />
-                <Text style={styles.radioButtonText}>Usar Radio</Text>
+                <Text style={styles.radioButtonText}>
+                  Escuchar en modo radio
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.radioButton]}
+                onPress={handleRetryVideo}
+              >
+                <Text style={styles.retryButtonText}>Cerrar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -487,9 +485,10 @@ const getStyles = (isDark, isFullscreen) =>
     modalHeader: {
       alignItems: "center",
       paddingHorizontal: 20,
+      marginTop: 0,
     },
     modalTitle: {
-      fontSize: 24,
+      fontSize: 18,
       fontWeight: "bold",
       color: "#000",
       marginTop: 8,
@@ -497,10 +496,14 @@ const getStyles = (isDark, isFullscreen) =>
       textAlign: "center",
     },
     modalMessage: {
-      fontSize: 16,
+      fontSize: 14,
       color: "#6b7280",
-      textAlign: "center",
-      lineHeight: 24,
+      textAlign: "justify",
+      lineHeight: 18,
+    },
+    modalMessage2: {
+      marginLeft: -20,
+      marginBottom: 0,
     },
     modalButtons: {
       paddingHorizontal: 20,
@@ -519,10 +522,11 @@ const getStyles = (isDark, isFullscreen) =>
       backgroundColor: "#3b82f6",
     },
     radioButton: {
-      backgroundColor: "#10b981",
+      backgroundColor: "#fff",
+      borderWidth: 1,
     },
     retryButtonText: {
-      color: "#fff",
+      color: "#000",
       fontSize: 16,
       fontWeight: "600",
     },

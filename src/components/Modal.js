@@ -71,10 +71,10 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "auto",
     justifyContent: "flex-end",
+    zIndex: 999999,
   },
   modalBody: {
     width: "100%",
-    height: "auto",
     borderRadius: 35,
     backgroundColor: "white",
     paddingHorizontal: 20,
