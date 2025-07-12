@@ -50,7 +50,7 @@ const lightStyles = StyleSheet.create({
     fontSize: 12,
     marginTop: 15,
     lineHeight: 17,
-    textAlign: "justify",
+    textAlign: "left",
   },
   hashtag: {
     backgroundColor: colors.gray5,

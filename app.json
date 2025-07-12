@@ -1,8 +1,8 @@
 {
   "expo": {
     "name": "VenezuelaNews",
-    "slug": "venezuela-news",
-    "version": "1.0.4",
+    "slug": "venezuelanews",
+    "version": "1.0.5",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -28,9 +28,9 @@
     "plugins": ["expo-font"],
     "extra": {
       "eas": {
-        "projectId": "a504d5a1-e051-4c37-9a2a-d80d3c2c88fe"
+        "projectId": "5e3f59dd-d4e2-428e-ac1d-74d9f85a6b95"
       }
     },
-    "owner": "palm3205"
+    "owner": "angelhtc"
   }
 }

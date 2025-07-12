@@ -55,10 +55,10 @@ const Home = ({ navigation }) => {
     { id: 7, title: "Deportes" },
   ];
 
-  // Fallback data in case API fails
+  // Fallback data in case API fails - FIXED: Unique IDs with timestamp
   const fallbackSliderData = [
     {
-      id: "fallback-1",
+      id: `fallback-slider-${Date.now()}`,
       img: "https://via.placeholder.com/400x200/1e3a8a/ffffff?text=Venezuela+News",
       headline: "Últimas noticias de Venezuela",
       category: "General",
@@ -80,7 +80,7 @@ const Home = ({ navigation }) => {
 
   const fallbackNewsData = [
     {
-      id: "fallback-news-1",
+      id: `fallback-news-${Date.now()}`,
       headline: "Conectando con Venezuela News...",
       category: "General",
       content: "Estamos cargando las últimas noticias para ti.",
@@ -95,6 +95,32 @@ const Home = ({ navigation }) => {
       tags: ["cargando"],
     },
   ];
+
+  // UTILITY FUNCTION: Remove duplicates and ensure unique IDs
+  const removeDuplicatesAndEnsureUniqueIds = (items, prefix = "") => {
+    const seen = new Set();
+    return items
+      .map((item, index) => {
+        let uniqueId = item.id;
+
+        // If ID is already seen or doesn't exist, create a unique one
+        if (!uniqueId || seen.has(uniqueId)) {
+          uniqueId = `${prefix}${item.id || "item"}-${index}-${Date.now()}`;
+        }
+
+        seen.add(uniqueId);
+
+        return {
+          ...item,
+          id: uniqueId,
+        };
+      })
+      .filter(
+        (item, index, self) =>
+          // Additional filter to remove duplicates by content
+          index === self.findIndex((t) => t.headline === item.headline)
+      );
+  };
 
   // Load initial data
   useEffect(() => {
@@ -113,7 +139,8 @@ const Home = ({ navigation }) => {
     setCurrentPage(1);
     setTotalPages(1);
     setHasMoreArticles(true);
-    setArticles([]);
+    // NO limpiar articles aquí para evitar el pestañeo
+    // setArticles([]);
 
     // Cargar primera página de la categoría
     await loadCategoryData(selCategory, 1, true);
@@ -129,7 +156,11 @@ const Home = ({ navigation }) => {
       // Load featured posts for slider
       const featured = await getFeaturedNews();
       if (featured && featured.length > 0) {
-        setSliderItems(featured);
+        const uniqueSliderItems = removeDuplicatesAndEnsureUniqueIds(
+          featured,
+          "slider-"
+        );
+        setSliderItems(uniqueSliderItems);
       } else {
         setSliderItems(fallbackSliderData);
       }
@@ -137,7 +168,11 @@ const Home = ({ navigation }) => {
       // Load latest news with pagination info
       const result = await getLatestNews(1);
       if (result.posts && result.posts.length > 0) {
-        setArticles(result.posts);
+        const uniqueArticles = removeDuplicatesAndEnsureUniqueIds(
+          result.posts,
+          "article-"
+        );
+        setArticles(uniqueArticles);
         setTotalPages(result.totalPages);
         setHasMoreArticles(result.hasMore);
       } else {
@@ -174,12 +209,20 @@ const Home = ({ navigation }) => {
       const result = await getPostsByCategory(categoryId, page);
 
       if (result.posts && result.posts.length > 0) {
+        const uniqueNewPosts = removeDuplicatesAndEnsureUniqueIds(
+          result.posts,
+          `cat-${categoryId}-page-${page}-`
+        );
+
         if (isNewCategory) {
           // Si es una nueva categoría, reemplazar artículos
-          setArticles(result.posts);
+          setArticles(uniqueNewPosts);
         } else {
-          // Si es carga de más artículos, añadir a los existentes
-          setArticles((prevArticles) => [...prevArticles, ...result.posts]);
+          // Si es carga de más artículos, añadir a los existentes evitando duplicados
+          setArticles((prevArticles) => {
+            const combined = [...prevArticles, ...uniqueNewPosts];
+            return removeDuplicatesAndEnsureUniqueIds(combined, "combined-");
+          });
         }
 
         setTotalPages(result.totalPages);
@@ -187,7 +230,12 @@ const Home = ({ navigation }) => {
         setError(null);
       } else if (isNewCategory) {
         // Solo usar fallback si es una nueva categoría y no hay resultados
-        setArticles(fallbackNewsData);
+        setArticles([
+          {
+            ...fallbackNewsData[0],
+            id: `fallback-cat-${categoryId}-${Date.now()}`,
+          },
+        ]);
         setHasMoreArticles(false);
       }
     } catch (error) {
@@ -195,7 +243,12 @@ const Home = ({ navigation }) => {
       setError("Error al cargar la categoría");
 
       if (isNewCategory) {
-        setArticles(fallbackNewsData);
+        setArticles([
+          {
+            ...fallbackNewsData[0],
+            id: `fallback-error-${categoryId}-${Date.now()}`,
+          },
+        ]);
         setHasMoreArticles(false);
       }
     } finally {
@@ -223,24 +276,16 @@ const Home = ({ navigation }) => {
     loadCategoryData(selCategory, nextPage, false);
   };
 
-  // Función para refrescar solo los artículos de la categoría actual
-  const onRefreshCategory = async () => {
+  // Función para refrescar TODO el contenido (slider + artículos)
+  const onRefreshAll = async () => {
     setRefreshing(true);
     try {
-      console.log("🔄 Refreshing category articles only...");
-
-      // Resetear estado de paginación
-      setCurrentPage(1);
-      setTotalPages(1);
-      setHasMoreArticles(true);
-      setArticles([]);
-
-      // Cargar solo la categoría actual, no el slider
-      await loadCategoryData(selCategory, 1, true);
+      console.log("🔄 Refreshing all content...");
+      await loadInitialData();
       setError(null);
     } catch (error) {
-      console.error("❌ Error refreshing category:", error);
-      setError("Error al actualizar la categoría");
+      console.error("❌ Error refreshing all content:", error);
+      setError("Error al actualizar el contenido");
     } finally {
       setRefreshing(false);
     }
@@ -256,7 +301,7 @@ const Home = ({ navigation }) => {
       "Error de conexión",
       "No se pudieron cargar los artículos. Verifica tu conexión a internet e intenta nuevamente.",
       [
-        { text: "Reintentar", onPress: onRefreshCategory },
+        { text: "Reintentar", onPress: onRefreshAll },
         { text: "Cancelar", style: "cancel" },
       ]
     );
@@ -266,7 +311,6 @@ const Home = ({ navigation }) => {
   const handleNewsPress = (newsItem) => {
     console.log("🚀 Navigating to news detail with:", newsItem.headline);
 
-    // Ensure we have all required data for the news detail screen
     const postData = {
       id: newsItem.id,
       headline: newsItem.headline,
@@ -285,7 +329,6 @@ const Home = ({ navigation }) => {
       link: newsItem.link,
     };
 
-    // Navigation with error handling
     try {
       navigation.navigate("NewsDetail", { post: postData });
     } catch (error) {
@@ -298,7 +341,6 @@ const Home = ({ navigation }) => {
   const handleSliderPress = (sliderItem) => {
     console.log("🎯 Slider item pressed:", sliderItem.headline);
 
-    // Convert slider item format to post format
     const postData = {
       id: sliderItem.id,
       headline: sliderItem.headline,
@@ -319,7 +361,6 @@ const Home = ({ navigation }) => {
       link: sliderItem.link,
     };
 
-    // Navigation with error handling
     try {
       navigation.navigate("NewsDetail", { post: postData });
     } catch (error) {
@@ -337,18 +378,69 @@ const Home = ({ navigation }) => {
     }
   };
 
-  // Renderizar solo el contenido actualizable (slider + categorías)
-  const renderUpdatableHeader = () => {
+  // IMPROVED KEY EXTRACTOR: Ensures unique keys with fallback
+  const getUniqueKey = (item, index, prefix = "") => {
+    if (item.id) {
+      return `${prefix}${item.id}`;
+    }
+    return `${prefix}item-${index}-${Date.now()}`;
+  };
+
+  // HEADER ESTÁTICO: Logo + Slider + Categorías (NUNCA CAMBIA)
+  const renderStaticHeader = () => {
     return (
-      <>
-        {/* Categories */}
+      <View>
+        {/* Logo & Notification */}
+        <View
+          style={[
+            tStyles.spacedRow,
+            { paddingHorizontal: 15, paddingTop: 5, paddingBottom: 20 },
+          ]}
+        >
+          <Logo />
+          <TouchableOpacity
+            onPress={() => navigation.navigate("Notifications")}
+            style={{ position: "relative" }}
+          >
+            {/* Add your notification icon here */}
+          </TouchableOpacity>
+        </View>
+
+        {/* Error banner */}
+        {error && (
+          <TouchableOpacity
+            onPress={showErrorAlert}
+            style={{
+              backgroundColor: "#fee2e2",
+              padding: 10,
+              marginHorizontal: 15,
+              borderRadius: 8,
+              marginBottom: 10,
+            }}
+          >
+            <Text style={{ color: "#dc2626", textAlign: "center" }}>
+              {error} - Toca para reintentar
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Slider - COMPLETAMENTE FIJO */}
+        {sliderItems.length > 0 && (
+          <View style={{ marginTop: 15, position: "relative", marginLeft: -8 }}>
+            <HomeSlider data={sliderItems} onItemPress={handleSliderPress} />
+          </View>
+        )}
+
+        {/* Categories - FIJO */}
         <View style={{ marginVertical: 20 }}>
           <FlatList
             horizontal={true}
             showsHorizontalScrollIndicator={false}
             bounces={false}
             data={categories}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item, index) =>
+              getUniqueKey(item, index, "category-")
+            }
             renderItem={({ item }) => (
               <CategoryItem
                 item={item}
@@ -361,7 +453,7 @@ const Home = ({ navigation }) => {
           />
         </View>
 
-        {/* Información de paginación */}
+        {/* Información de paginación - SOLO CUANDO NO ESTÁ CARGANDO */}
         {!categoryLoading && articles.length > 0 && (
           <View style={{ paddingHorizontal: 15, marginBottom: 10 }}>
             <Text
@@ -372,13 +464,51 @@ const Home = ({ navigation }) => {
             </Text>
           </View>
         )}
-      </>
+      </View>
     );
+  };
+
+  // COMPONENTE DE LOADING SEPARADO (FUERA DEL HEADER)
+  const renderCategoryLoadingState = () => {
+    if (!categoryLoading) return null;
+
+    return (
+      <View
+        style={{
+          padding: 30,
+          alignItems: "center",
+          backgroundColor: getColor("background", "#ffffff"),
+        }}
+      >
+        <ActivityIndicator
+          size='large'
+          color={getColor("primary", "#1e3a8a")}
+        />
+        <Text
+          style={{
+            marginTop: 10,
+            color: getColor("text", "#000000"),
+            fontSize: 14,
+            textAlign: "center",
+          }}
+        >
+          Cargando{" "}
+          {categories.find((cat) => cat.id === selCategory)?.title ||
+            "categoría"}
+          ...
+        </Text>
+      </View>
+    );
+  };
+
+  // RENDERIZAR ITEM DE ARTÍCULO NORMAL
+  const renderArticleItem = ({ item }) => {
+    return <NewsListItem item={item} onPress={() => handleNewsPress(item)} />;
   };
 
   // Renderizar el footer para la lista de artículos
   const renderFooter = () => {
-    if (!hasMoreArticles) {
+    if (!hasMoreArticles && !categoryLoading) {
       return (
         <View style={{ padding: 20, alignItems: "center" }}>
           <Text style={{ color: getColor("text", "#000000"), fontSize: 12 }}>
@@ -440,88 +570,33 @@ const Home = ({ navigation }) => {
       edges={["top", "right", "left"]}
       style={getStyles(mode).container}
     >
-      {/* Logo & Notification - FIJO */}
-      <View
-        style={[
-          tStyles.spacedRow,
-          { paddingHorizontal: 15, paddingTop: 5, paddingBottom: 20 },
-        ]}
-      >
-        <Logo />
-
-        <TouchableOpacity
-          onPress={() => navigation.navigate("Notifications")}
-          style={{ position: "relative" }}
-        >
-          {/* Add your notification icon here */}
-        </TouchableOpacity>
-      </View>
-
-      {/* Error banner */}
-      {error && (
-        <TouchableOpacity
-          onPress={showErrorAlert}
-          style={{
-            backgroundColor: "#fee2e2",
-            padding: 10,
-            marginHorizontal: 15,
-            borderRadius: 8,
-            marginBottom: 10,
-          }}
-        >
-          <Text style={{ color: "#dc2626", textAlign: "center" }}>
-            {error} - Toca para reintentar
-          </Text>
-        </TouchableOpacity>
-      )}
-
-      {sliderItems.length > 0 && (
-        <View style={{ marginTop: 15, position: "relative", marginLeft: 0 }}>
-          <HomeSlider data={sliderItems} onItemPress={handleSliderPress} />
-        </View>
-      )}
-
-      {/* Contenido actualizable */}
-      {categoryLoading ? (
-        <View style={{ padding: 30, alignItems: "center" }}>
-          <ActivityIndicator
-            size='large'
-            color={getColor("primary", "#1e3a8a")}
-          />
-          <Text
-            style={{
-              marginTop: 10,
-              color: getColor("text", "#000000"),
-              fontSize: 14,
-            }}
-          >
-            Cargando{" "}
-            {categories.find((cat) => cat.id === selCategory)?.title ||
-              "categoría"}
-            ...
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          ref={mainListRef}
-          data={articles}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <NewsListItem item={item} onPress={() => handleNewsPress(item)} />
-          )}
-          contentContainerStyle={{
-            paddingHorizontal: 15,
-            paddingBottom: 90,
-          }}
-          showsVerticalScrollIndicator={false}
-          ListHeaderComponent={renderUpdatableHeader}
-          ListEmptyComponent={
+      {/* ESTRUCTURA PRINCIPAL CON HEADER FIJO Y CONTENIDO DINÁMICO */}
+      <FlatList
+        ref={mainListRef}
+        data={articles} // SIEMPRE mostrar artículos
+        keyExtractor={(item, index) => getUniqueKey(item, index, "article-")}
+        renderItem={renderArticleItem}
+        contentContainerStyle={{
+          paddingHorizontal: 15,
+          paddingBottom: 90,
+        }}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <View>
+            {/* Header estático que NUNCA cambia */}
+            {renderStaticHeader()}
+            {/* Loading state separado que aparece DESPUÉS del header */}
+            {renderCategoryLoadingState()}
+          </View>
+        }
+        ListEmptyComponent={
+          !categoryLoading ? (
             <View style={{ padding: 20, alignItems: "center" }}>
               <Text style={{ color: getColor("text", "#000000") }}>
                 No hay noticias disponibles
               </Text>
               <TouchableOpacity
-                onPress={onRefreshCategory}
+                onPress={onRefreshAll}
                 style={{
                   marginTop: 10,
                   padding: 10,
@@ -532,22 +607,22 @@ const Home = ({ navigation }) => {
                 <Text style={{ color: "#ffffff" }}>Reintentar</Text>
               </TouchableOpacity>
             </View>
-          }
-          ListFooterComponent={renderFooter}
-          onEndReached={loadMoreArticles}
-          onEndReachedThreshold={0.3}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefreshCategory}
-              colors={[getColor("primary", "#1e3a8a")]}
-              tintColor={getColor("primary", "#1e3a8a")}
-              title='Actualizando artículos...'
-              titleColor={getColor("text", "#000000")}
-            />
-          }
-        />
-      )}
+          ) : null
+        }
+        ListFooterComponent={renderFooter}
+        onEndReached={loadMoreArticles}
+        onEndReachedThreshold={0.3}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefreshAll}
+            colors={[getColor("primary", "#1e3a8a")]}
+            tintColor={getColor("primary", "#1e3a8a")}
+            title='Actualizando contenido...'
+            titleColor={getColor("text", "#000000")}
+          />
+        }
+      />
     </SafeAreaView>
   );
 };

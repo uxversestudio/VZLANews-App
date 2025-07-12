@@ -138,6 +138,16 @@ const useWordPressSearch = () => {
     sucesos: "https://imagizer.imageshack.com/img922/1944/8RqAHC.png",
     Regiones: "https://imagizer.imageshack.com/img924/3267/dGKSq2.png",
     regiones: "https://imagizer.imageshack.com/img924/3267/dGKSq2.png",
+    "Expediente News": "https://imagizer.imageshack.com/img924/6038/nXohJF.png",
+    "expendient news": "https://imagizer.imageshack.com/img924/6038/nXohJF.png",
+    Galería: "https://imagizer.imageshack.com/img923/6747/ulik0J.png",
+    galería: "https://imagizer.imageshack.com/img923/6747/ulik0J.png",
+    Nacionales: "https://imagizer.imageshack.com/img923/4611/KajVPg.png",
+    nacionales: "https://imagizer.imageshack.com/img923/4611/KajVPg.png",
+    Podcasts: "https://imagizer.imageshack.com/img923/4582/VXmD5V.png",
+    podcasts: "https://imagizer.imageshack.com/img923/4582/VXmD5V.png",
+    Portada: "https://imagizer.imageshack.com/img923/9136/RFWLJJ.png",
+    portada: "https://imagizer.imageshack.com/img923/9136/RFWLJJ.png",
   };
 
   // Función memoizada para obtener imagen de categoría
