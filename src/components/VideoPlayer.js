@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { WebView } from "react-native-webview";
 import * as ScreenOrientation from "expo-screen-orientation";
+import ModalCustom from "../components/Modal";
 
 const VideoPlayerWebView = ({
   source,
@@ -24,8 +25,29 @@ const VideoPlayerWebView = ({
 }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [newModal, setNewModal] = useState(true);
   const [isPlaying, setIsPlaying] = useState(!paused);
   const webViewRef = useRef(null);
+
+  const Icon = ({ name, size = 24, color = "#000", style }) => {
+    const iconMap = {
+      "arrow-left": "←",
+      x: "✕",
+      search: "🔍",
+      bookmark: "🔖",
+      plus: "+",
+      expand: "⛶",
+      radio: "📻",
+      video: "📺",
+      error: "⚠️",
+    };
+
+    return (
+      <Text style={[{ fontSize: size, color, textAlign: "center" }, style]}>
+        {iconMap[name] || "?"}
+      </Text>
+    );
+  };
 
   // URLs alternativas para el stream
   const alternativeStreams = [
@@ -455,14 +477,15 @@ const VideoPlayerWebView = ({
       if (onError) {
         onError({ message: errorMessage || "All streams failed" });
       }
-      Alert.alert(
+      setNewModal(true);
+      /*Alert.alert(
         "Error de Conexión",
         "No se pudo conectar al stream de video. Esto puede deberse a:\n\n• Restricciones geográficas\n• Firewall o proxy\n• Problemas de conectividad\n• Stream temporalmente no disponible",
         [
           { text: "Reintentar", onPress: retryConnection },
           { text: "Cancelar", style: "cancel" },
         ]
-      );
+      );*/
     }
   };
 
@@ -471,6 +494,12 @@ const VideoPlayerWebView = ({
     setCurrentSource(source);
     setHasError(false);
     setIsLoading(true);
+  };
+
+  const handleUseRadio = () => {
+    setMediaMode("radio");
+    setVideoError(false);
+    setNewModal(false);
   };
 
   if (hasError && currentStreamIndex >= alternativeStreams.length - 1) {
@@ -530,6 +559,42 @@ const VideoPlayerWebView = ({
           </Text>
         </View>
       )}
+      {/* Modal de Error de Video */}
+      {newModal && (
+        <ModalCustom setStatus={setNewModal} height='30%'>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                Stream no disponible en este momento
+              </Text>
+              <Text style={styles.modalMessage}>
+                Parece que no hay transmisión en vivo en este momento. Pero
+                puedes seguir escuchando las noticias en modo radio.
+              </Text>
+              <Text style={[styles.modalMessage, styles.modalMessage2]}></Text>
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.radioButton]}
+                onPress={handleUseRadio}
+              >
+                <Icon name='radio' size={20} color='#fff' />
+                <Text style={styles.radioButtonText}>
+                  Escuchar en modo radio
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.retryButton]}
+                onPress={retryConnection}
+              >
+                <Icon name='video' size={18} color='#fff' />
+                <Text style={styles.retryButtonText}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ModalCustom>
+      )}
     </View>
   );
 };
@@ -538,6 +603,7 @@ const styles = StyleSheet.create({
   videoContainer: {
     backgroundColor: "#000",
     position: "relative",
+    paddingBottom: 10,
   },
   webView: {
     flex: 1,
@@ -592,6 +658,57 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   retryButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  modalContent: {
+    flex: 1,
+    justifyContent: "space-between",
+    paddingVertical: 20,
+    backgroundColor: "#fff", // Agregar fondo blanco
+  },
+  modalHeader: {
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginTop: 10, // Cambiar de 0 a 10
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#000",
+    marginTop: 8,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: "#6b7280",
+    textAlign: "justify",
+    lineHeight: 18,
+  },
+  modalMessage2: {
+    marginLeft: -20,
+    marginBottom: 0,
+  },
+  modalButtons: {
+    paddingHorizontal: 20,
+    gap: 12,
+    paddingBottom: 10, // Agregar padding bottom
+  },
+  modalButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    gap: 8,
+  },
+  radioButton: {
+    backgroundColor: "#10b981", // Agregar color de fondo verde
+  },
+  radioButtonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",

@@ -108,12 +108,7 @@ const Search = ({ navigation }) => {
       <TouchableOpacity
         style={getStyles(mode).loadMoreButton}
         onPress={loadMoreCategories}
-      >
-        <Text style={getStyles(mode).loadMoreText}>
-          Cargar 3 categorías más
-        </Text>
-        <MaterialCommunityIcons name='chevron-down' size={20} color='#1e3a8a' />
-      </TouchableOpacity>
+      ></TouchableOpacity>
     );
   };
 

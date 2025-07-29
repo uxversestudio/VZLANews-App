@@ -95,12 +95,12 @@ const SliderItem = ({ item, onPress }) => {
           const calculatedHeight = containerWidth * aspectRatio;
 
           // Limitar altura máxima para mantener buen diseño
-          const maxHeight = 650;
+          const maxHeight = 800;
           const finalHeight = Math.min(calculatedHeight, maxHeight);
 
           setImageDimensions({
             width: containerWidth,
-            height: 500,
+            height: 400,
           });
           setImageLoaded(true);
         },
@@ -133,7 +133,7 @@ const SliderItem = ({ item, onPress }) => {
       <View
         style={{
           width: width - 30,
-          height: (width - 50) * 1,
+          height: (width - 50) * 2,
           backgroundColor: "#f0f0f0",
           borderRadius: 30,
           marginHorizontal: 15,
@@ -157,7 +157,7 @@ const SliderItem = ({ item, onPress }) => {
         width: imageDimensions.width,
         height: imageDimensions.height,
         justifyContent: "space-between",
-        marginHorizontal: 15,
+        marginHorizontal: 5,
       }}
       imageStyle={{
         borderRadius: 30,

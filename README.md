@@ -16,7 +16,7 @@ The template is built with a contemporary look, prioritizing readability and eas
 
 Venezuela News includes a rich variety of screens that are essential for news and magazine apps:
 
-- **Home Screen:** Showcase top news, trending articles, or featured stories.
+- **Home Screen:** Showcase top5e3f59dd-d4e2-428e-ac1d-74d9f85a6b95 news, trending articles, or featured stories.
 - **News Listing Screen:** Beautifully designed with a focus on readability and content consumption. Includes space for images, videos, and related articles.
 - **Categories & News Sources:** Users can explore content across various topics and categories.
 - **Profile Screens:** Enable users to manage their preferences, save news, and personalize their experience.
