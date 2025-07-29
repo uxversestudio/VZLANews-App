@@ -19,7 +19,7 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.5</string>
+    <string>1.0.6</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleURLTypes</key>
@@ -64,11 +64,7 @@
       <string>UIInterfaceOrientationLandscapeLeft</string>
       <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
-<<<<<<< HEAD
-=======
-
->>>>>>> 1401449a89188f7edea0dfe4b907e746a232d19a
-    <key>UIBackgroundModes</key>
+     <key>UIBackgroundModes</key>
     <array>
     <string>audio</string>
     </array>

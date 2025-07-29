@@ -168,6 +168,8 @@ const NewsDetails = ({ navigation }) => {
   const [shouldFetchDetails, setShouldFetchDetails] = useState(false);
   const scrollThreshold = 200;
 
+  console.log(newsData, "===========");
+
   const {
     postDetails,
     loading: detailsLoading,
