@@ -12,6 +12,8 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   ActivityIndicator,
+  Linking,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -31,7 +33,130 @@ import Hr from "../components/Hr";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import Pill from "../components/Pill";
 import usePostDetails from "../feature/wordpress-api-details";
-import { shareContent } from "../common/shareUtils"; // Import the share utility
+import { shareContent } from "../common/shareUtils";
+
+// Función mejorada para parsear HTML y extraer enlaces con mejor espaciado
+const parseHTMLContent = (htmlContent) => {
+  if (!htmlContent) return [];
+
+  // Regex para encontrar enlaces HTML
+  const linkRegex = /<a[^>]*href=["']([^"']*)["'][^>]*>(.*?)<\/a>/gi;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = linkRegex.exec(htmlContent)) !== null) {
+    // Agregar texto antes del enlace
+    if (match.index > lastIndex) {
+      const textBefore = htmlContent.slice(lastIndex, match.index);
+      const cleanText = textBefore.replace(/<[^>]*>/g, "");
+      if (cleanText.trim()) {
+        parts.push({ type: "text", content: cleanText });
+      }
+    }
+
+    // Agregar el enlace
+    const url = match[1];
+    const linkText = match[2].replace(/<[^>]*>/g, "").trim();
+    if (linkText && url) {
+      parts.push({
+        type: "link",
+        content: linkText,
+        url: url,
+      });
+    }
+
+    lastIndex = linkRegex.lastIndex;
+  }
+
+  // Agregar texto restante después del último enlace
+  if (lastIndex < htmlContent.length) {
+    const remainingText = htmlContent.slice(lastIndex);
+    const cleanText = remainingText.replace(/<[^>]*>/g, "");
+    if (cleanText.trim()) {
+      parts.push({ type: "text", content: cleanText });
+    }
+  }
+
+  // Si no se encontraron enlaces, devolver todo como texto
+  if (parts.length === 0) {
+    const cleanText = htmlContent.replace(/<[^>]*>/g, "");
+    if (cleanText.trim()) {
+      parts.push({ type: "text", content: cleanText });
+    }
+  }
+
+  return parts;
+};
+
+// Componente mejorado para renderizar texto con enlaces bien espaciados
+const RenderTextWithLinks = ({ content, textStyle, mode }) => {
+  const parts = parseHTMLContent(content);
+
+  const handleLinkPress = async (url) => {
+    try {
+      // Verificar si la URL es válida
+      if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        url = "https://" + url;
+      }
+
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert("Error", "No se puede abrir este enlace");
+      }
+    } catch (error) {
+      console.error("Error opening link:", error);
+      Alert.alert("Error", "No se pudo abrir el enlace");
+    }
+  };
+
+  // Función para determinar si necesitamos agregar separación después de un enlace
+  const needsSpacing = (currentIndex, parts) => {
+    const nextPart = parts[currentIndex + 1];
+    // Agregar separación si el siguiente elemento es otro enlace
+    return nextPart && nextPart.type === "link";
+  };
+
+  return (
+    <Text style={textStyle}>
+      {parts.map((part, index) => {
+        if (part.type === "link") {
+          return (
+            <Text key={index}>
+              <Text
+                style={[
+                  textStyle,
+                  {
+                    color: "#2f366a",
+                    textDecorationLine: "underline",
+                    fontWeight: "bold",
+                  },
+                ]}
+                onPress={() => handleLinkPress(part.url)}
+              >
+                {part.content}
+              </Text>
+              {/* Agregar separación solo si el siguiente elemento es otro enlace */}
+              {needsSpacing(index, parts) && (
+                <Text style={textStyle}>{"\n\n"}</Text>
+              )}
+              {/* Espacio normal después de cada enlace */}
+              <Text style={textStyle}> </Text>
+            </Text>
+          );
+        } else {
+          return (
+            <Text key={index} style={textStyle}>
+              {part.content}
+            </Text>
+          );
+        }
+      })}
+    </Text>
+  );
+};
 
 const NewsDetails = ({ navigation }) => {
   const mode = useColorScheme();
@@ -41,9 +166,10 @@ const NewsDetails = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [detailsFetched, setDetailsFetched] = useState(false);
   const [shouldFetchDetails, setShouldFetchDetails] = useState(false);
-  const scrollThreshold = 200; // Scroll threshold to trigger detailed fetch
+  const scrollThreshold = 200;
 
-  // Custom hook for fetching detailed post data
+  console.log(newsData, "===========");
+
   const {
     postDetails,
     loading: detailsLoading,
@@ -53,10 +179,8 @@ const NewsDetails = ({ navigation }) => {
     resetPostDetails,
   } = usePostDetails();
 
-  // Get the post data from navigation params
   const { post } = route.params || {};
 
-  // Función segura para manejar el scroll y activar la carga de detalles
   const handleScrollThreshold = useCallback(() => {
     if (
       !detailsFetched &&
@@ -72,19 +196,15 @@ const NewsDetails = ({ navigation }) => {
     }
   }, [detailsFetched, detailsLoading, newsData, hasDetailedContent]);
 
-  // Configurar el manejador de scroll de forma segura
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (e) => {
       scroll.value = e.contentOffset.y;
-
-      // Usar runOnJS para llamar a funciones de JavaScript desde el hilo de UI
       if (e.contentOffset.y > scrollThreshold) {
         runOnJS(handleScrollThreshold)();
       }
     },
   });
 
-  // Inicializar datos cuando se carga el componente
   useEffect(() => {
     if (post) {
       console.log("✅ Post data found, setting newsData");
@@ -94,14 +214,11 @@ const NewsDetails = ({ navigation }) => {
       console.log("❌ No post data found in params");
       setLoading(false);
     }
-
-    // Reset details when component mounts with new post
     resetPostDetails();
     setDetailsFetched(false);
     setShouldFetchDetails(false);
   }, [post, resetPostDetails]);
 
-  // Efecto para cargar detalles cuando se activa la bandera
   useEffect(() => {
     const loadDetails = async () => {
       if (shouldFetchDetails && newsData?.id) {
@@ -115,19 +232,15 @@ const NewsDetails = ({ navigation }) => {
         }
       }
     };
-
     loadDetails();
   }, [shouldFetchDetails, newsData, fetchPostDetails]);
 
-  // Update newsData when detailed content is fetched
   useEffect(() => {
     if (postDetails && hasDetailedContent) {
       console.log("🔄 Updating newsData with detailed content");
-      // Combinar datos originales con los nuevos para preservar campos importantes
       setNewsData((prev) => ({
         ...prev,
         ...postDetails,
-        // Asegurar que estos campos siempre existan
         img: postDetails.img || prev.img,
         headline: postDetails.headline || prev.headline,
         content: postDetails.content || prev.content || prev.headline,
@@ -135,7 +248,6 @@ const NewsDetails = ({ navigation }) => {
     }
   }, [postDetails, hasDetailedContent]);
 
-  // Generate hashtags from post tags or create default ones
   const getHashtags = () => {
     try {
       if (newsData?.tags && newsData.tags.length > 0) {
@@ -150,10 +262,8 @@ const NewsDetails = ({ navigation }) => {
     }
   };
 
-  // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return "Reciente";
-
     try {
       const date = new Date(dateString);
       const now = new Date();
@@ -174,20 +284,28 @@ const NewsDetails = ({ navigation }) => {
     }
   };
 
-  // Split content into paragraphs with better handling
   const getContentParagraphs = () => {
     try {
       if (!newsData?.content) return [];
 
-      // Use detailed content if available, otherwise fall back to excerpt or headline
       const content = hasDetailedContent
         ? newsData.content
         : newsData.excerpt || newsData.content || newsData.headline || "";
 
-      return content
-        .split("\n")
-        .filter((paragraph) => paragraph.trim().length > 0)
-        .map((paragraph) => paragraph.trim());
+      // Si el contenido tiene HTML, lo dividimos por párrafos HTML
+      if (content.includes("<p>") || content.includes("<a")) {
+        // Dividir por párrafos pero mantener los enlaces intactos
+        return content
+          .split(/\n\n+/)
+          .filter((paragraph) => paragraph.trim().length > 0)
+          .map((paragraph) => paragraph.trim());
+      } else {
+        // Si no tiene HTML, dividimos por saltos de línea dobles
+        return content
+          .split(/\n\n+/)
+          .filter((paragraph) => paragraph.trim().length > 0)
+          .map((paragraph) => paragraph.trim());
+      }
     } catch (e) {
       console.error("Error procesando párrafos:", e);
       return [newsData?.headline || "Contenido no disponible"];
@@ -196,12 +314,10 @@ const NewsDetails = ({ navigation }) => {
 
   const handleShareArticle = async () => {
     if (!newsData) return;
-
     try {
       const articleUrl =
         newsData.link ||
         `https://venezuela-news.com/article/${newsData.id || "unknown"}`;
-
       await shareContent({
         title: "Compartir noticia",
         message: newsData.headline || "Mira esta noticia interesante",
@@ -212,7 +328,6 @@ const NewsDetails = ({ navigation }) => {
     }
   };
 
-  // Loading state
   if (loading) {
     return (
       <SafeAreaView style={getStyles(mode).container}>
@@ -228,7 +343,6 @@ const NewsDetails = ({ navigation }) => {
     );
   }
 
-  // No data state
   if (!newsData) {
     return (
       <SafeAreaView style={getStyles(mode).container}>
@@ -268,7 +382,6 @@ const NewsDetails = ({ navigation }) => {
   return (
     <SafeAreaView edges={["right", "left"]} style={getStyles(mode).container}>
       <KeyboardAvoidingView behavior='height' style={getStyles(mode).container}>
-        {/* Top Bar */}
         <TopBar
           scroll={scroll}
           headline={newsData.headline}
@@ -281,15 +394,11 @@ const NewsDetails = ({ navigation }) => {
           onScroll={scrollHandler}
           showsVerticalScrollIndicator={false}
           style={tStyles.flex1}
-          scrollEventThrottle={16} // Important for smooth scroll detection
+          scrollEventThrottle={16}
         >
-          {/* Image Hero Header */}
           <ImageHeader scroll={scroll} newsData={newsData} />
-
-          {/* News Source Social */}
           <NewsSourceSocial newsData={newsData} />
 
-          {/* Loading indicator for detailed content */}
           {detailsLoading && (
             <View
               style={{
@@ -305,7 +414,6 @@ const NewsDetails = ({ navigation }) => {
             </View>
           )}
 
-          {/* Error message for detailed content */}
           {detailsError && (
             <View style={{ paddingHorizontal: 15, paddingVertical: 10 }}>
               <View
@@ -319,7 +427,7 @@ const NewsDetails = ({ navigation }) => {
                 <Text
                   style={{
                     color: "#dc2626",
-                    textAlign: "center",
+                    textAlign: "left",
                     fontSize: 14,
                   }}
                 >
@@ -329,35 +437,39 @@ const NewsDetails = ({ navigation }) => {
             </View>
           )}
 
-          {/* News Details */}
           <View style={{ paddingHorizontal: 15 }}>
             {getContentParagraphs().map((paragraph, index) => (
-              <Text
-                key={index}
-                style={[
-                  getStyles(mode).newsDetailsText,
-                  { marginTop: index === 0 ? 10 : 15, textAlign: "justify" },
-                ]}
-              >
-                {paragraph}
-              </Text>
+              <View key={index} style={{ marginBottom: 12 }}>
+                <RenderTextWithLinks
+                  content={paragraph}
+                  textStyle={[
+                    getStyles(mode).newsDetailsText,
+                    {
+                      textAlign: "left",
+                      lineHeight: 20,
+                    },
+                  ]}
+                  mode={mode}
+                />
+              </View>
             ))}
 
             {getContentParagraphs().length === 0 && (
-              <Text
-                style={[
+              <RenderTextWithLinks
+                content={newsData.headline || "Contenido no disponible"}
+                textStyle={[
                   getStyles(mode).newsDetailsText,
-                  { marginTop: 10, textAlign: "justify" },
+                  {
+                    marginTop: 5,
+                    textAlign: "left",
+                    lineHeight: 20,
+                  },
                 ]}
-              >
-                {newsData.headline || "Contenido no disponible"}
-              </Text>
+                mode={mode}
+              />
             )}
-
-            {/* Show content status */}
           </View>
 
-          {/* News Images - Show featured image if available */}
           {newsData.img && (
             <View style={{ paddingHorizontal: 15, marginVertical: 20 }}>
               <Image
@@ -368,7 +480,6 @@ const NewsDetails = ({ navigation }) => {
             </View>
           )}
 
-          {/* Hashtags */}
           <View
             style={[
               tStyles.row,
@@ -391,20 +502,15 @@ const NewsDetails = ({ navigation }) => {
             <Hr size={2} color={colors.gray5} />
           </View>
 
-          {/* News Comments */}
           <View style={{ paddingHorizontal: 15 }}>
             <View style={[tStyles.spacedRow]}></View>
-
             <View style={{ marginTop: 25 }}></View>
           </View>
         </Animated.ScrollView>
 
-        {/* Comment Box */}
         <View
           style={{ paddingHorizontal: 15, paddingTop: 10, paddingBottom: 30 }}
         ></View>
-
-        {/* Like Button */}
         <View style={getStyles(mode).likeContainer}></View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -427,7 +533,6 @@ const TopBar = ({ scroll, shareArticle, headline }) => {
       [0, 230],
       ["transparent", colors.lynch]
     );
-
     return {
       transform: [{ translateY }],
       backgroundColor,
@@ -453,7 +558,6 @@ const TopBar = ({ scroll, shareArticle, headline }) => {
       [20, 50],
       Extrapolation.CLAMP
     );
-
     return {
       opacity,
       transform: [{ translateX }, { translateY }],
@@ -476,7 +580,6 @@ const TopBar = ({ scroll, shareArticle, headline }) => {
         ]}
       >
         <ShareBackHeader color={colors.gray10} share={shareArticle} />
-
         <Animated.Text
           style={[
             headlineStyle,
@@ -509,7 +612,6 @@ const ImageHeader = ({ scroll, newsData }) => {
       [1, 0],
       Extrapolation.CLAMP
     );
-
     return {
       opacity,
     };
@@ -517,7 +619,6 @@ const ImageHeader = ({ scroll, newsData }) => {
 
   const formatDate = (dateString) => {
     if (!dateString) return "Reciente";
-
     try {
       const date = new Date(dateString);
       const now = new Date();
@@ -553,25 +654,20 @@ const ImageHeader = ({ scroll, newsData }) => {
         >
           <View style={[tStyles.row, { marginBottom: 13 }]}>
             <Pill title={newsData.category || "General"} />
-
             <Text
               style={[getStyles(mode).newsMetaText, { marginHorizontal: 12 }]}
             >
               {newsData.read_time || 3} min lectura
             </Text>
-
             <Text style={getStyles(mode).newsMetaText}>
               {formatDate(newsData.time)}
             </Text>
           </View>
-
           <Text style={getStyles(mode).newsHeadline}>
             {newsData.headline || "Título no disponible"}
           </Text>
-
           <View style={[tStyles.row, { marginTop: 10 }]}>
             <View style={tStyles.row}></View>
-
             <View style={[tStyles.row, { marginLeft: 20 }]}></View>
           </View>
         </LinearGradient>
@@ -591,15 +687,11 @@ const NewsSourceSocial = ({ newsData }) => {
         { paddingVertical: 20, paddingHorizontal: 15 },
       ]}
     >
-      <TouchableOpacity
-        onPress={() => navigation.navigate("SourceProfile")}
-        style={tStyles.row}
-      >
+      <View style={tStyles.row}>
         <Image
           source={require("../assets/images/logo.jpeg")}
           style={getStyles(mode).sourceLogo}
         />
-
         <View>
           <Text style={[getStyles(mode).sourceName]}>
             {newsData?.author?.name || "Venezuela News"}
@@ -611,9 +703,7 @@ const NewsSourceSocial = ({ newsData }) => {
               .replace(/\s+/g, "")}
           </Text>
         </View>
-      </TouchableOpacity>
-
-      <View></View>
+      </View>
     </View>
   );
 };

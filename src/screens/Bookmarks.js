@@ -17,6 +17,7 @@ import {
   StatusBar,
 } from "react-native";
 import VideoPlayerWebView from "../components/VideoPlayer";
+import RadioPlayer from "../components/RadioPlayer";
 import * as ScreenOrientation from "expo-screen-orientation";
 
 const { width, height } = Dimensions.get("window");
@@ -30,6 +31,9 @@ const Icon = ({ name, size = 24, color = "#000", style }) => {
     bookmark: "🔖",
     plus: "+",
     expand: "⛶",
+    radio: "📻",
+    video: "📺",
+    error: "⚠️",
   };
 
   return (
@@ -45,6 +49,9 @@ const Bookmarks = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [bookmarkTitle, setBookmarkTitle] = useState("");
   const [searchText, setSearchText] = useState("");
+  const [mediaMode, setMediaMode] = useState("radio"); // Empezar con radio por defecto
+  const [videoError, setVideoError] = useState(false);
+  const [videoErrorMessage, setVideoErrorMessage] = useState("");
   const mode = useColorScheme();
   const isDark = mode === "dark";
 
@@ -52,9 +59,12 @@ const Bookmarks = () => {
   const streamUrls = [
     "https://vcp15.myplaytv.com/venenews/venenews/playlist.m3u8",
     "https://vcp15.myplaytv.com/venenews/venenews/chunklist.m3u8",
+    // Streams de respaldo
+    "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
   ];
 
   const [currentStreamUrl, setCurrentStreamUrl] = useState(streamUrls[0]);
+  const [streamIndex, setStreamIndex] = useState(0);
 
   const bookmarks = [
     {
@@ -100,17 +110,66 @@ const Bookmarks = () => {
 
   const handleVideoError = (error) => {
     console.log("Stream error:", error);
+    const errorMsg = error?.message || "Error de conexión de video";
+    setVideoError(true);
+    setVideoErrorMessage(errorMsg);
+
+    // Intentar con el siguiente stream
+    if (streamIndex < streamUrls.length - 1) {
+      const nextIndex = streamIndex + 1;
+      setStreamIndex(nextIndex);
+      setCurrentStreamUrl(streamUrls[nextIndex]);
+      console.log(`Trying next stream: ${streamUrls[nextIndex]}`);
+
+      // Reintentar después de un breve delay
+      setTimeout(() => {
+        setVideoError(false);
+      }, 2000);
+    } else {
+      // Si todos los streams fallan, ofrecer cambiar a radio
+      Alert.alert(
+        "Error de Video",
+        "No se pudo cargar ningún stream de video. La radio está disponible.",
+        [
+          {
+            text: "Reintentar Video",
+            onPress: () => {
+              setStreamIndex(0);
+              setCurrentStreamUrl(streamUrls[0]);
+              setVideoError(false);
+            },
+          },
+          {
+            text: "Usar Radio",
+            onPress: () => {
+              setMediaMode("radio");
+              setVideoError(false);
+            },
+          },
+        ],
+        { cancelable: false }
+      );
+    }
   };
 
-  const toggleVideo = () => {
+  const toggleMedia = () => {
     setShowVideo(!showVideo);
+  };
+
+  const switchMediaMode = (mode) => {
+    console.log(`Switching media mode to: ${mode}`);
+    setMediaMode(mode);
+    setVideoError(false);
+    setVideoErrorMessage("");
+    if (!showVideo) {
+      setShowVideo(true);
+    }
   };
 
   const handleFullscreenToggle = async () => {
     try {
       setIsFullscreen(!isFullscreen);
 
-      // También cambiar la orientación de la pantalla
       if (!isFullscreen) {
         await ScreenOrientation.lockAsync(
           ScreenOrientation.OrientationLock.LANDSCAPE
@@ -142,8 +201,8 @@ const Bookmarks = () => {
 
   const styles = getStyles(isDark, isFullscreen);
 
-  // SOLUCIÓN: Usar Modal para pantalla completa en lugar de View condicional
-  if (isFullscreen) {
+  // Modal de pantalla completa (solo para video)
+  if (isFullscreen && mediaMode === "video") {
     return (
       <Modal
         visible={isFullscreen}
@@ -183,36 +242,117 @@ const Bookmarks = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Video perfectamente centrado */}
+        {/* Selector de modo de media */}
         {showVideo && (
-          <View style={styles.centeredVideoContainer}>
-            <View style={styles.videoWrapper}>
-              <VideoPlayerWebView
-                source={{ uri: currentStreamUrl }}
-                style={styles.centeredVideo}
-                controls={true}
-                resizeMode='contain'
-                paused={false}
-                onError={handleVideoError}
-                isFullscreen={isFullscreen}
-                onFullscreenToggle={handleFullscreenToggle}
-              />
+          <View style={styles.mediaSelectorContainer}>
+            <View style={styles.mediaSelector}>
               <TouchableOpacity
-                style={styles.videoCloseBtn}
-                onPress={toggleVideo}
+                style={[
+                  styles.mediaSelectorBtn,
+                  mediaMode === "video" && styles.mediaSelectorBtnActive,
+                ]}
+                onPress={() => switchMediaMode("video")}
               >
-                <Icon name='x' size={16} color='#fff' />
+                <Icon
+                  name='video'
+                  size={16}
+                  color={
+                    mediaMode === "video" ? "#fff" : isDark ? "#fff" : "#000"
+                  }
+                />
+                <Text
+                  style={[
+                    styles.mediaSelectorText,
+                    mediaMode === "video" && styles.mediaSelectorTextActive,
+                  ]}
+                >
+                  Video
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.mediaSelectorBtn,
+                  mediaMode === "radio" && styles.mediaSelectorBtnActive,
+                ]}
+                onPress={() => switchMediaMode("radio")}
+              >
+                <Icon
+                  name='radio'
+                  size={16}
+                  color={
+                    mediaMode === "radio" ? "#fff" : isDark ? "#fff" : "#000"
+                  }
+                />
+                <Text
+                  style={[
+                    styles.mediaSelectorText,
+                    mediaMode === "radio" && styles.mediaSelectorTextActive,
+                  ]}
+                >
+                  Radio
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {/* Botón para mostrar video cuando está oculto */}
+        {/* Contenedor de media centrado */}
+        {showVideo && (
+          <View style={styles.centeredMediaContainer}>
+            {mediaMode === "video" ? (
+              <View style={styles.videoWrapper}>
+                <VideoPlayerWebView
+                  source={{ uri: currentStreamUrl }}
+                  style={styles.centeredVideo}
+                  controls={true}
+                  resizeMode='contain'
+                  paused={false}
+                  onError={handleVideoError}
+                  isFullscreen={isFullscreen}
+                  onFullscreenToggle={handleFullscreenToggle}
+                />
+                <TouchableOpacity
+                  style={styles.mediaCloseBtn}
+                  onPress={toggleMedia}
+                >
+                  <Icon name='x' size={16} color='#fff' />
+                </TouchableOpacity>
+                {videoError && (
+                  <View style={styles.errorOverlay}>
+                    <Icon name='error' size={16} color='#fff' />
+                    <Text style={styles.errorText}>
+                      {videoErrorMessage || "Error de conexión"}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View style={styles.radioWrapper}>
+                <RadioPlayer isDark={isDark} />
+                <TouchableOpacity
+                  style={styles.mediaCloseBtn}
+                  onPress={toggleMedia}
+                >
+                  <Icon name='x' size={16} color='#fff' />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Botón para mostrar media cuando está oculto */}
         {!showVideo && (
-          <View style={styles.showVideoContainer}>
-            <TouchableOpacity style={styles.showVideoBtn} onPress={toggleVideo}>
-              <Icon name='expand' size={20} color={isDark ? "#fff" : "#000"} />
-              <Text style={styles.showVideoBtnText}>Mostrar Video</Text>
+          <View style={styles.showMediaContainer}>
+            <TouchableOpacity style={styles.showMediaBtn} onPress={toggleMedia}>
+              <Icon
+                name={mediaMode === "video" ? "video" : "radio"}
+                size={20}
+                color={isDark ? "#fff" : "#000"}
+              />
+              <Text style={styles.showMediaBtnText}>
+                Mostrar {mediaMode === "video" ? "Video" : "Radio"}
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -262,13 +402,45 @@ const getStyles = (isDark, isFullscreen) =>
     scrollContent: {
       flexGrow: 1,
     },
-    centeredVideoContainer: {
+    mediaSelectorContainer: {
+      paddingHorizontal: 20,
+      paddingTop: 40,
+      paddingBottom: 10,
+    },
+    mediaSelector: {
+      flexDirection: "row",
+      backgroundColor: isDark ? "#374151" : "#f3f4f6",
+      borderRadius: 12,
+      padding: 4,
+    },
+    mediaSelectorBtn: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      gap: 6,
+    },
+    mediaSelectorBtnActive: {
+      backgroundColor: "#3b82f6",
+    },
+    mediaSelectorText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: isDark ? "#fff" : "#000",
+    },
+    mediaSelectorTextActive: {
+      color: "#fff",
+    },
+    centeredMediaContainer: {
       width: "100%",
-      minHeight: height * 1,
+      minHeight: height * 0.4,
       justifyContent: "center",
       alignItems: "center",
       paddingHorizontal: 20,
-      paddingVertical: 30,
+      paddingVertical: 20,
       position: "relative",
     },
     videoWrapper: {
@@ -284,11 +456,16 @@ const getStyles = (isDark, isFullscreen) =>
       shadowRadius: 12,
       backgroundColor: "#000",
     },
+    radioWrapper: {
+      position: "relative",
+      width: "100%",
+      maxWidth: 400,
+    },
     centeredVideo: {
       width: "100%",
       height: "100%",
     },
-    videoCloseBtn: {
+    mediaCloseBtn: {
       position: "absolute",
       top: 12,
       right: 12,
@@ -301,15 +478,32 @@ const getStyles = (isDark, isFullscreen) =>
       zIndex: 1000,
       elevation: 5,
     },
-    showVideoContainer: {
+    errorOverlay: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: "rgba(239, 68, 68, 0.9)",
+      padding: 12,
+      alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: 8,
+    },
+    errorText: {
+      color: "#fff",
+      fontSize: 12,
+      fontWeight: "600",
+    },
+    showMediaContainer: {
       width: "100%",
       minHeight: 100,
       justifyContent: "center",
       alignItems: "center",
       paddingHorizontal: 20,
-      paddingVertical: 30,
+      paddingVertical: 50,
     },
-    showVideoBtn: {
+    showMediaBtn: {
       flexDirection: "row",
       alignItems: "center",
       backgroundColor: isDark ? "#374151" : "#e5e7eb",
@@ -323,7 +517,7 @@ const getStyles = (isDark, isFullscreen) =>
       shadowOpacity: 0.2,
       shadowRadius: 4,
     },
-    showVideoBtnText: {
+    showMediaBtnText: {
       color: isDark ? "#fff" : "#000",
       fontSize: 16,
       fontWeight: "600",

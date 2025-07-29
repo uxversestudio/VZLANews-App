@@ -37,6 +37,29 @@ const usePostDetails = (
     };
 
     let decodedText = text;
+    const linkPlaceholders = [];
+    let linkCounter = 0;
+
+    decodedText = decodedText.replace(
+      /<a[^>]*href=["']([^"']*)["'][^>]*>(.*?)<\/a>/gi,
+      (match, href, linkText) => {
+        const placeholder = `|||LINK_PLACEHOLDER_${linkCounter}|||`;
+        linkPlaceholders.push({
+          placeholder,
+          href: href.trim(),
+          text: linkText.replace(/<[^>]*>/g, "").trim(), // Limpiar HTML del texto del enlace
+          fullMatch: match,
+        });
+        linkCounter++;
+        return placeholder;
+      }
+    );
+
+    // PASO 2: Reemplazar entidades HTML
+    Object.keys(entityMap).forEach((entity) => {
+      const regex = new RegExp(entity, "g");
+      decodedText = decodedText.replace(regex, entityMap[entity]);
+    });
 
     // Replace HTML entities
     Object.keys(entityMap).forEach((entity) => {
@@ -83,6 +106,12 @@ const usePostDetails = (
 
     // Eliminar saltos de línea al inicio y final
     decodedText = decodedText.replace(/^\n+|\n+$/g, "");
+
+    linkPlaceholders.forEach((linkData) => {
+      // Reconstruir el enlace HTML limpio
+      const cleanLink = `<a href="${linkData.href}">${linkData.text}</a>`;
+      decodedText = decodedText.replace(linkData.placeholder, cleanLink);
+    });
 
     return decodedText;
   };

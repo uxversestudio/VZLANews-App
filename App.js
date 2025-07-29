@@ -1,5 +1,3 @@
-"use client";
-
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, View, Image } from "react-native";
 import {
