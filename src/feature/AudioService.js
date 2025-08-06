@@ -1,6 +1,7 @@
 import { Audio } from "expo-av";
+import { Platform } from "react-native";
 
-class ActivaFMService {
+class ActivaFMServiceFixed {
   constructor() {
     this.sound = null;
     this.isPlaying = false;
@@ -11,16 +12,15 @@ class ActivaFMService {
       artist: "Venezuela news",
       frequency: "104.9 FM",
       artwork: "https://static.mytuner.mobi/media/tvos_radios/2dtqy3cdjvxt.png",
+      // URLs potenciales basadas en patrones comunes de radios venezolanas
       streamUrls: [
-        "https://stream-162.zeno.fm/t31pbasum7zuv?zt=eyJhbGciOiJIUzI1NiJ9.eyJzdHJlYW0iOiJ0MzFwYmFzdW03enV2IiwiaG9zdCI6InN0cmVhbS0xNjIuemVuby5mbSIsInJ0dGwiOjUsImp0aSI6IlVXT2NPd0JxU2gtSVlnRnZDUzl1VHciLCJpYXQiOjE3MzcwODQwOTEsImV4cCI6MTczNzA4NDE1MX0.qbI74VVctZggX1XkanMsqFBcYDO89s08M65XxUBo2L4",
+        "https://stream-162.zeno.fm/t31pbasum7zuv?zt=eyJhbGciOiJIUzI1NiJ9.eyJzdHJlYW0iOiJ0MzFwYmFzdW03enV2IiwiaG9zdCI6InN0cmVhbS0xNjIuemVuby5mbSIsInJ0dGwiOjUsImp0aSI6IlVXT2NPd0JxU2gtSVlnRnZDUzl1VHciLCJpYXQiOjE3MzcwODQwOTEsImV4cCI6MTczNzA4NDE1MX0.qbI74VVctZggX1XkanMsqFBcYDO89s08M65XxUBo2L4", // URL potencial 3
       ],
     };
     this.currentUrlIndex = 0;
     this.listeners = [];
     this.retryCount = 0;
     this.maxRetries = 2;
-    this.lastError = null;
-    this.isInitialized = false;
   }
 
   async setupAudio() {
@@ -36,23 +36,32 @@ class ActivaFMService {
         playThroughEarpieceAndroid: false,
       };
 
+      // Usar valores numéricos directos en lugar de constantes
+      if (Platform.OS === "ios") {
+        // Valor numérico para iOS DoNotMix
+        basicConfig.interruptionModeIOS = 1;
+      } else if (Platform.OS === "android") {
+        // Valor numérico para Android DoNotMix
+        basicConfig.interruptionModeAndroid = 1;
+      }
+
       await Audio.setAudioModeAsync(basicConfig);
       console.log("✅ Audio configuration successful");
-      this.isInitialized = true;
       return true;
     } catch (error) {
       console.error("❌ Audio setup error:", error);
 
-      // Fallback 1: Configuración aún más básica
+      // Fallback 1: Sin modos de interrupción
       try {
         console.log("🔄 Trying fallback configuration...");
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: false,
           playsInSilentModeIOS: true,
           staysActiveInBackground: true,
+          shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: false,
         });
         console.log("✅ Fallback audio configuration successful");
-        this.isInitialized = true;
         return true;
       } catch (fallbackError) {
         console.error("❌ Fallback failed:", fallbackError);
@@ -64,11 +73,9 @@ class ActivaFMService {
             playsInSilentModeIOS: true,
           });
           console.log("✅ Minimal audio configuration successful");
-          this.isInitialized = true;
           return true;
         } catch (minimalError) {
           console.error("❌ All audio configurations failed:", minimalError);
-          this.isInitialized = false;
           return false;
         }
       }
@@ -84,20 +91,14 @@ class ActivaFMService {
   }
 
   notifyListeners() {
-    const state = {
-      isPlaying: this.isPlaying,
-      isLoading: this.isLoading,
-      currentTrack: this.station,
-      error: this.lastError,
-    };
-
-    this.listeners.forEach((callback) => {
-      try {
-        callback(state);
-      } catch (error) {
-        console.error("Error in listener callback:", error);
-      }
-    });
+    this.listeners.forEach((callback) =>
+      callback({
+        isPlaying: this.isPlaying,
+        isLoading: this.isLoading,
+        currentTrack: this.station,
+        error: this.lastError,
+      })
+    );
   }
 
   async testConnection(url) {
@@ -125,7 +126,7 @@ class ActivaFMService {
       if (error.name === "AbortError") {
         console.log(`⏱️ Timeout: ${url}`);
       } else {
-        console.log(`❌ Connection failed: ${url} - ${error}`);
+        console.log(`❌ Connection failed: ${url} - ${error.message}`);
       }
       return false;
     }
@@ -151,11 +152,6 @@ class ActivaFMService {
   async play() {
     try {
       console.log("▶️ Play requested for Activa 104.9 FM");
-
-      if (!this.isInitialized) {
-        throw new Error("Audio service not initialized");
-      }
-
       if (this.sound) {
         const status = await this.sound.getStatusAsync();
         if (status.isLoaded && !status.error) {
@@ -191,9 +187,11 @@ class ActivaFMService {
       // Buscar stream que funcione
       let workingUrl;
       if (this.retryCount === 0) {
+        // Primera vez, usar la URL actual
         workingUrl = this.station.streamUrls[this.currentUrlIndex];
         console.log(`📻 Trying current stream: ${workingUrl}`);
       } else {
+        // Buscar alternativa
         workingUrl = await this.findWorkingStream();
       }
 
@@ -317,7 +315,6 @@ class ActivaFMService {
       this.isLoading = false;
       this.listeners = [];
       this.retryCount = 0;
-      this.isInitialized = false;
       console.log("🧹 Activa FM service cleaned up");
     } catch (error) {
       console.error("❌ Cleanup error:", error);
@@ -339,12 +336,8 @@ class ActivaFMService {
   getLastError() {
     return this.lastError;
   }
-
-  getIsInitialized() {
-    return this.isInitialized;
-  }
 }
 
 // Singleton instance
-const activaFMService = new ActivaFMService();
-export default activaFMService;
+const activaFMServiceFixed = new ActivaFMServiceFixed();
+export default activaFMServiceFixed;

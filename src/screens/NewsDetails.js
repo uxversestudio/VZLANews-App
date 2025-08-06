@@ -129,9 +129,9 @@ const RenderTextWithLinks = ({ content, textStyle, mode }) => {
                 style={[
                   textStyle,
                   {
-                    color: "#0066CC",
+                    color: "#2f366a",
                     textDecorationLine: "underline",
-                    fontWeight: "500",
+                    fontWeight: "bold",
                   },
                 ]}
                 onPress={() => handleLinkPress(part.url)}
@@ -167,6 +167,8 @@ const NewsDetails = ({ navigation }) => {
   const [detailsFetched, setDetailsFetched] = useState(false);
   const [shouldFetchDetails, setShouldFetchDetails] = useState(false);
   const scrollThreshold = 200;
+
+  console.log(newsData, "===========");
 
   const {
     postDetails,
@@ -685,10 +687,7 @@ const NewsSourceSocial = ({ newsData }) => {
         { paddingVertical: 20, paddingHorizontal: 15 },
       ]}
     >
-      <TouchableOpacity
-        onPress={() => navigation.navigate("SourceProfile")}
-        style={tStyles.row}
-      >
+      <View style={tStyles.row}>
         <Image
           source={require("../assets/images/logo.jpeg")}
           style={getStyles(mode).sourceLogo}
@@ -704,8 +703,7 @@ const NewsSourceSocial = ({ newsData }) => {
               .replace(/\s+/g, "")}
           </Text>
         </View>
-      </TouchableOpacity>
-      <View></View>
+      </View>
     </View>
   );
 };

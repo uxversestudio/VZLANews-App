@@ -8,18 +8,21 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  TextInput,
   Modal,
   Dimensions,
+  Image,
+  Alert,
   useColorScheme,
   StatusBar,
 } from "react-native";
 import VideoPlayerWebView from "../components/VideoPlayer";
 import RadioPlayer from "../components/RadioPlayer";
 import * as ScreenOrientation from "expo-screen-orientation";
-import ModalCustom from "../components/Modal";
 
 const { width, height } = Dimensions.get("window");
 
+// Componente de icono simple usando emojis y símbolos
 const Icon = ({ name, size = 24, color = "#000", style }) => {
   const iconMap = {
     "arrow-left": "←",
@@ -44,17 +47,66 @@ const Bookmarks = () => {
   const [newModal, setNewModal] = useState(false);
   const [showVideo, setShowVideo] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [mediaMode, setMediaMode] = useState("radio");
+  const [bookmarkTitle, setBookmarkTitle] = useState("");
+  const [searchText, setSearchText] = useState("");
+  const [mediaMode, setMediaMode] = useState("radio"); // Empezar con radio por defecto
   const [videoError, setVideoError] = useState(false);
   const [videoErrorMessage, setVideoErrorMessage] = useState("");
   const mode = useColorScheme();
   const isDark = mode === "dark";
+
+  // URLs de streams alternativos para probar
   const streamUrls = [
     "https://vcp15.myplaytv.com/venenews/venenews/playlist.m3u8",
+    "https://vcp15.myplaytv.com/venenews/venenews/chunklist.m3u8",
+    // Streams de respaldo
+    "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
   ];
 
   const [currentStreamUrl, setCurrentStreamUrl] = useState(streamUrls[0]);
   const [streamIndex, setStreamIndex] = useState(0);
+
+  const bookmarks = [
+    {
+      id: 1,
+      title: "Public",
+      subtitle: "102 News",
+      image:
+        "https://images.stockcake.com/public/6/4/e/64e85ac8-fa25-4531-8456-fe578e14037a_large/rallying-national-pride-stockcake.jpg",
+    },
+    {
+      id: 2,
+      title: "Tech",
+      subtitle: "50 News",
+      image:
+        "https://images.stockcake.com/public/c/b/9/cb99c622-332d-4cbb-ad65-672b615654e0_large/business-news-review-stockcake.jpg",
+    },
+    {
+      id: 3,
+      title: "Music",
+      subtitle: "150 News",
+      image:
+        "https://images.stockcake.com/public/2/f/4/2f45d23b-9ba8-4b8a-9ff8-609021bbbde0_large/excited-sports-commentator-stockcake.jpg",
+    },
+    {
+      id: 4,
+      title: "Health",
+      subtitle: "25 News",
+      image:
+        "https://images.stockcake.com/public/f/1/1/f1187ba6-4ea7-4dd5-9a3c-7f3990d15ea7_large/political-event-broadcast-stockcake.jpg",
+    },
+    {
+      id: 5,
+      title: "Religious",
+      subtitle: "18 News",
+      image:
+        "https://images.stockcake.com/public/5/1/1/511aa674-0c8b-4241-bb42-1fe5d15cb077_large/educational-science-fun-stockcake.jpg",
+    },
+  ];
+
+  const filteredBookmarks = bookmarks.filter((bookmark) =>
+    bookmark.title.toLowerCase().includes(searchText.toLowerCase())
+  );
 
   const handleVideoError = (error) => {
     console.log("Stream error:", error);
@@ -62,32 +114,42 @@ const Bookmarks = () => {
     setVideoError(true);
     setVideoErrorMessage(errorMsg);
 
+    // Intentar con el siguiente stream
     if (streamIndex < streamUrls.length - 1) {
       const nextIndex = streamIndex + 1;
       setStreamIndex(nextIndex);
       setCurrentStreamUrl(streamUrls[nextIndex]);
       console.log(`Trying next stream: ${streamUrls[nextIndex]}`);
 
+      // Reintentar después de un breve delay
       setTimeout(() => {
         setVideoError(false);
       }, 2000);
     } else {
-      // Mostrar el modal cuando todos los streams fallan
-      setNewModal(true);
+      // Si todos los streams fallan, ofrecer cambiar a radio
+      Alert.alert(
+        "Error de Video",
+        "No se pudo cargar ningún stream de video. La radio está disponible.",
+        [
+          {
+            text: "Reintentar Video",
+            onPress: () => {
+              setStreamIndex(0);
+              setCurrentStreamUrl(streamUrls[0]);
+              setVideoError(false);
+            },
+          },
+          {
+            text: "Usar Radio",
+            onPress: () => {
+              setMediaMode("radio");
+              setVideoError(false);
+            },
+          },
+        ],
+        { cancelable: false }
+      );
     }
-  };
-
-  const handleRetryVideo = () => {
-    setStreamIndex(0);
-    setCurrentStreamUrl(streamUrls[0]);
-    setVideoError(false);
-    setNewModal(false);
-  };
-
-  const handleUseRadio = () => {
-    setMediaMode("radio");
-    setVideoError(false);
-    setNewModal(false);
   };
 
   const toggleMedia = () => {
@@ -122,8 +184,24 @@ const Bookmarks = () => {
     }
   };
 
+  const handleSaveBookmark = () => {
+    if (bookmarkTitle.trim()) {
+      console.log("Saving bookmark:", bookmarkTitle);
+      setBookmarkTitle("");
+      setNewModal(false);
+      Alert.alert("Éxito", "Bookmark guardado correctamente");
+    } else {
+      Alert.alert("Error", "Por favor ingresa un título para el bookmark");
+    }
+  };
+
+  const handleBookmarkPress = (bookmark) => {
+    Alert.alert("Bookmark", `Seleccionaste: ${bookmark.title}`);
+  };
+
   const styles = getStyles(isDark, isFullscreen);
 
+  // Modal de pantalla completa (solo para video)
   if (isFullscreen && mediaMode === "video") {
     return (
       <Modal
@@ -164,6 +242,7 @@ const Bookmarks = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {/* Selector de modo de media */}
         {showVideo && (
           <View style={styles.mediaSelectorContainer}>
             <View style={styles.mediaSelector}>
@@ -218,6 +297,7 @@ const Bookmarks = () => {
           </View>
         )}
 
+        {/* Contenedor de media centrado */}
         {showVideo && (
           <View style={styles.centeredMediaContainer}>
             {mediaMode === "video" ? (
@@ -261,6 +341,7 @@ const Bookmarks = () => {
           </View>
         )}
 
+        {/* Botón para mostrar media cuando está oculto */}
         {!showVideo && (
           <View style={styles.showMediaContainer}>
             <TouchableOpacity style={styles.showMediaBtn} onPress={toggleMedia}>
@@ -276,41 +357,6 @@ const Bookmarks = () => {
           </View>
         )}
       </ScrollView>
-
-      {/* Modal de Error de Video */}
-      {newModal && (
-        <ModalCustom setStatus={setNewModal} height='50%'>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                Stream no disponible en este momento
-              </Text>
-              <Text style={styles.modalMessage}>
-                Parece que no hay transmisión en vivo en este momento. Pero
-                puedes seguir escuchando las noticias en modo radio.
-              </Text>
-              <Text style={[styles.modalMessage, styles.modalMessage2]}></Text>
-            </View>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.retryButton]}
-                onPress={handleUseRadio}
-              >
-                <Text style={styles.radioButtonText}>
-                  Escuchar en modo radio
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.radioButton]}
-                onPress={handleRetryVideo}
-              >
-                <Text style={styles.retryButtonText}>Cerrar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </ModalCustom>
-      )}
     </SafeAreaView>
   );
 };
@@ -390,7 +436,7 @@ const getStyles = (isDark, isFullscreen) =>
     },
     centeredMediaContainer: {
       width: "100%",
-      minHeight: height * 0.8,
+      minHeight: height * 0.4,
       justifyContent: "center",
       alignItems: "center",
       paddingHorizontal: 20,
@@ -476,64 +522,182 @@ const getStyles = (isDark, isFullscreen) =>
       fontSize: 16,
       fontWeight: "600",
     },
-    // Estilos para el contenido del modal
-    modalContent: {
+    content: {
       flex: 1,
-      justifyContent: "space-between",
-      paddingVertical: 20,
-    },
-    modalHeader: {
-      alignItems: "center",
       paddingHorizontal: 20,
-      marginTop: 0,
+      paddingTop: 20,
+      paddingBottom: 40,
     },
-    modalTitle: {
-      fontSize: 18,
+    headingContainer: {
+      marginBottom: 24,
+      alignItems: "center",
+    },
+    heading: {
+      fontSize: 28,
       fontWeight: "bold",
-      color: "#000",
-      marginTop: 8,
-      marginBottom: 12,
+      marginBottom: 8,
       textAlign: "center",
     },
-    modalMessage: {
-      fontSize: 14,
-      color: "#6b7280",
-      textAlign: "justify",
-      lineHeight: 18,
+    subheading: {
+      fontSize: 16,
+      textAlign: "center",
     },
-    modalMessage2: {
-      marginLeft: -20,
-      marginBottom: 0,
+    searchContainer: {
+      marginBottom: 24,
     },
-    modalButtons: {
-      paddingHorizontal: 20,
-      gap: 12,
-    },
-    modalButton: {
+    searchBar: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center",
-      paddingVertical: 16,
-      paddingHorizontal: 24,
-      borderRadius: 12,
-      gap: 8,
+      borderRadius: 16,
+      paddingHorizontal: 20,
+      height: 56,
+      elevation: 2,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
     },
-    retryButton: {
-      backgroundColor: "#3b82f6",
+    searchIcon: {
+      marginRight: 12,
     },
-    radioButton: {
-      backgroundColor: "#fff",
-      borderWidth: 1,
-    },
-    retryButtonText: {
-      color: "#000",
+    searchInput: {
+      flex: 1,
       fontSize: 16,
-      fontWeight: "600",
     },
-    radioButtonText: {
+    bookmarkGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "space-between",
+      paddingBottom: 20,
+    },
+    bookmarkCard: {
+      width: (width - 60) / 2,
+      aspectRatio: 4 / 3,
+      marginBottom: 20,
+      borderRadius: 16,
+      overflow: "hidden",
+      position: "relative",
+      elevation: 6,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2,
+      shadowRadius: 6,
+    },
+    bookmarkImage: {
+      width: "100%",
+      height: "100%",
+    },
+    bookmarkOverlay: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: "60%",
+      backgroundColor: "rgba(0,0,0,0.7)",
+    },
+    bookmarkContent: {
+      position: "absolute",
+      bottom: 16,
+      left: 16,
+      right: 16,
+    },
+    bookmarkTitle: {
       color: "#fff",
-      fontSize: 16,
+      fontSize: 18,
+      fontWeight: "700",
+      marginBottom: 4,
+    },
+    bookmarkSubtitle: {
+      color: "rgba(255,255,255,0.8)",
+      fontSize: 14,
+    },
+    addBookmarkCard: {
+      width: (width - 60) / 2,
+      aspectRatio: 4 / 3,
+      marginBottom: 20,
+      borderRadius: 16,
+      borderWidth: 2,
+      borderStyle: "dashed",
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: isDark
+        ? "rgba(55, 65, 81, 0.3)"
+        : "rgba(243, 244, 246, 0.5)",
+    },
+    addBookmarkText: {
+      fontSize: 14,
+      marginTop: 8,
       fontWeight: "600",
+      textAlign: "center",
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.7)",
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: 20,
+    },
+    modalContent: {
+      width: "100%",
+      maxWidth: 400,
+      borderRadius: 20,
+      padding: 28,
+      elevation: 15,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.4,
+      shadowRadius: 12,
+    },
+    modalTitle: {
+      fontSize: 22,
+      fontWeight: "bold",
+      textAlign: "center",
+      marginBottom: 28,
+    },
+    inputContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      borderRadius: 16,
+      paddingHorizontal: 20,
+      height: 56,
+      marginBottom: 28,
+    },
+    inputIcon: {
+      marginRight: 12,
+    },
+    textInput: {
+      flex: 1,
+      fontSize: 16,
+    },
+    modalButtons: {
+      flexDirection: "row",
+      gap: 16,
+    },
+    cancelBtn: {
+      flex: 1,
+      backgroundColor: "#e5e7eb",
+      height: 52,
+      borderRadius: 16,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    cancelBtnText: {
+      color: "#374151",
+      fontWeight: "600",
+      fontSize: 16,
+    },
+    saveBtn: {
+      flex: 1,
+      backgroundColor: "#3b82f6",
+      height: 52,
+      borderRadius: 16,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    saveBtnText: {
+      color: "#fff",
+      fontWeight: "600",
+      fontSize: 16,
     },
   });
 

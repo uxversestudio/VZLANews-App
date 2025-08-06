@@ -10,11 +10,12 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import ActivaFMService from "../feature/AudioService";
+import activaFMServiceFixed from "../feature/AudioService";
 
+// Componente de icono simple
 const Icon = ({ name, size = 24, color = "#000" }) => {
   const iconMap = {
-    play: "▶",
+    play: "▶️",
     pause: "⏸️",
     volume: "🔊",
     radio: "📻",
@@ -26,19 +27,20 @@ const Icon = ({ name, size = 24, color = "#000" }) => {
   };
 
   return (
-    <Text style={{ fontSize: size, color, textAlign: "center", marginTop: -6 }}>
+    <Text style={{ fontSize: size, color, textAlign: "center" }}>
       {iconMap[name] || "?"}
     </Text>
   );
 };
 
 const RadioPlayer = ({ isDark = false, style }) => {
-  const [station, setStation] = useState(ActivaFMService.getCurrentTrack());
+  const [station, setStation] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState(null);
 
+  // Callback para actualizar el estado
   const updateState = useCallback((state) => {
     console.log("🎵 UI Update:", {
       playing: state.isPlaying,
@@ -52,6 +54,7 @@ const RadioPlayer = ({ isDark = false, style }) => {
     setError(state.error);
   }, []);
 
+  // Configurar el servicio al montar
   useEffect(() => {
     const initializeService = async () => {
       try {
@@ -59,11 +62,11 @@ const RadioPlayer = ({ isDark = false, style }) => {
         setIsLoading(true);
         setError(null);
 
-        const success = await ActivaFMService.setupAudio();
+        const success = await activaFMServiceFixed.setupAudio();
         if (success) {
           console.log("✅ Activa FM service initialized");
-          setStation(ActivaFMService.getCurrentTrack());
-          ActivaFMService.addListener(updateState);
+          setStation(activaFMServiceFixed.getCurrentTrack());
+          activaFMServiceFixed.addListener(updateState);
           setIsInitialized(true);
         } else {
           setError("No se pudo inicializar el reproductor de Activa 104.9 FM");
@@ -80,8 +83,8 @@ const RadioPlayer = ({ isDark = false, style }) => {
 
     return () => {
       console.log("🧹 Cleaning up Activa FM Player...");
-      ActivaFMService.removeListener(updateState);
-      ActivaFMService.cleanup();
+      activaFMServiceFixed.removeListener(updateState);
+      activaFMServiceFixed.cleanup();
     };
   }, [updateState]);
 
@@ -90,9 +93,9 @@ const RadioPlayer = ({ isDark = false, style }) => {
       console.log(`🎵 ${isPlaying ? "Pause" : "Play"} Activa 104.9 FM`);
       setError(null);
       if (isPlaying) {
-        await ActivaFMService.pause();
+        await activaFMServiceFixed.pause();
       } else {
-        await ActivaFMService.play();
+        await activaFMServiceFixed.play();
       }
     } catch (error) {
       console.error("❌ Play/Pause error:", error);
@@ -108,7 +111,7 @@ const RadioPlayer = ({ isDark = false, style }) => {
     try {
       console.log("🔄 Manual retry for Activa 104.9 FM");
       setError(null);
-      await ActivaFMService.retry();
+      await activaFMServiceFixed.retry();
     } catch (error) {
       console.error("❌ Retry error:", error);
       setError("Error al reintentar: " + error.message);
@@ -130,6 +133,7 @@ const RadioPlayer = ({ isDark = false, style }) => {
 
   const styles = getActivaFMStyles(isDark);
 
+  // Estado de carga inicial
   if (!isInitialized && isLoading) {
     return (
       <View style={[styles.container, style]}>
@@ -138,12 +142,14 @@ const RadioPlayer = ({ isDark = false, style }) => {
           <Text style={styles.loadingText}>
             Conectando a Activa 104.9 FM...
           </Text>
+          <Text style={styles.loadingSubtext}>🇻🇪 Altagracia de Orituco</Text>
           <Text style={styles.loadingNote}>Configurando audio...</Text>
         </View>
       </View>
     );
   }
 
+  // Estado de error de inicialización
   if (!isInitialized && error) {
     return (
       <View style={[styles.container, style]}>
@@ -163,12 +169,25 @@ const RadioPlayer = ({ isDark = false, style }) => {
   return (
     <View style={[styles.container, style]}>
       <View style={styles.radioCard}>
+        {/* Header con bandera venezolana */}
         <View style={styles.header}>
           <Icon name='venezuela' size={24} />
           <Text style={styles.headerText}>Venezuela</Text>
         </View>
 
+        {/* Artwork */}
         <View style={styles.artworkContainer}>
+          <View style={styles.artworkWrapper}>
+            <Image
+              source={{ uri: station?.artwork }}
+              style={styles.artwork}
+              onError={() => console.log("Error loading artwork")}
+            />
+            <View style={styles.logoOverlay}>
+              <Text style={styles.logoText}>ACTIVA</Text>
+              <Text style={styles.frequencyText}>104.9 FM</Text>
+            </View>
+          </View>
           {isLoading && (
             <View style={styles.bufferingOverlay}>
               <ActivityIndicator size='small' color='#fff' />
@@ -177,9 +196,14 @@ const RadioPlayer = ({ isDark = false, style }) => {
           )}
         </View>
 
+        {/* Station Info */}
         <View style={styles.stationInfo}>
-          <Text style={styles.stationTitle}>Venezuela News Radio</Text>
+          <Text style={styles.stationTitle}>Activa 104.9 FM</Text>
+          <Text style={styles.stationLocation}>
+            Altagracia de Orituco, Guárico
+          </Text>
 
+          {/* Status indicators */}
           {isPlaying && !isLoading && !error && (
             <View style={styles.liveIndicator}>
               <View style={styles.liveDot} />
@@ -202,7 +226,19 @@ const RadioPlayer = ({ isDark = false, style }) => {
           )}
         </View>
 
+        {/* Controls */}
         <View style={styles.controls}>
+          <TouchableOpacity
+            style={[
+              styles.controlButton,
+              isLoading && styles.controlButtonDisabled,
+            ]}
+            onPress={handleInfo}
+            disabled={isLoading}
+          >
+            <Icon name='info' size={20} color={isDark ? "#fff" : "#000"} />
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[
               styles.playButton,
@@ -219,12 +255,27 @@ const RadioPlayer = ({ isDark = false, style }) => {
                 name={isPlaying ? "pause" : "play"}
                 size={28}
                 color='#fff'
-                tint='#000'
               />
             )}
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.controlButton,
+              isLoading && styles.controlButtonDisabled,
+            ]}
+            onPress={handleRetry}
+            disabled={isLoading}
+          >
+            <Icon
+              name='refresh'
+              size={20}
+              color={isLoading ? "#ccc" : isDark ? "#fff" : "#000"}
+            />
+          </TouchableOpacity>
         </View>
 
+        {/* Status bar */}
         <View style={styles.statusContainer}>
           <Icon name='volume' size={16} color={isDark ? "#888" : "#666"} />
           <Text style={styles.statusText}>
@@ -233,7 +284,7 @@ const RadioPlayer = ({ isDark = false, style }) => {
               : isLoading
               ? "Conectando a Venezuela..."
               : isPlaying
-              ? "🇻🇪 Transmitiendo"
+              ? "🇻🇪 Transmitiendo desde Guárico"
               : "Listo para reproducir"}
           </Text>
           {error && (
@@ -484,16 +535,14 @@ const getActivaFMStyles = (isDark) =>
       width: 75,
       height: 75,
       borderRadius: 37.5,
-      paddingTop: -50,
       backgroundColor: "#e53e3e",
       justifyContent: "center",
       alignItems: "center",
       elevation: 8,
       shadowColor: "#e53e3e",
-      shadowOffset: { width: 0, height: 0 },
+      shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.4,
       shadowRadius: 8,
-      position: "relative",
     },
     playButtonActive: {
       backgroundColor: "#c53030",
