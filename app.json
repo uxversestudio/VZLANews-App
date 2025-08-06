@@ -2,9 +2,9 @@
   "expo": {
     "name": "VenezuelaNews",
     "slug": "venezuelanews",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon.jpg",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash.jpg",
@@ -13,14 +13,19 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.uxverse.venezuelanews"
+      "bundleIdentifier": "com.geekspark.gsnews",
+      "deploymentTarget": "13.4",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "buildNumber": "2"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/adaptive-icon.jpg",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.uxverse.venezuelanews"
+      "package": "com.geekspark.gsnews"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -28,9 +33,9 @@
     "plugins": ["expo-font"],
     "extra": {
       "eas": {
-        "projectId": "5e3f59dd-d4e2-428e-ac1d-74d9f85a6b95"
+        "projectId": "c0a8c041-72c9-4cc2-89f2-e1a15ae7ba59"
       }
     },
-    "owner": "angelhtc"
+    "owner": "uxverse-studio"
   }
 }
